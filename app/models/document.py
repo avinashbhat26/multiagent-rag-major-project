@@ -1,8 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
-@dataclass
-class RetrievedChunk:
+@dataclass(slots=True)
+class DocumentChunk:
+    chunk_id: str
     text: str
     source: str
-    score: float
+    page: int
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class RetrievedChunk(DocumentChunk):
+    score: float = 0.0

@@ -26,7 +26,7 @@ jobs:
       - name: Lint
         run: |
           ruff check .
-          black --check .
+          ruff format --check .
 
       - name: Run tests
         run: pytest
