@@ -13,10 +13,14 @@ class Settings(BaseSettings):
     llm_provider: str = "extractive"
     llm_model: str = "gpt-4o-mini"
     top_k: int = 5
+    retrieval_pool_multiplier: int = 3
     chunk_size_words: int = 220
     chunk_overlap_words: int = 40
     min_chunk_words: int = 40
     verify_threshold: float = 0.75
+    enable_reranking: bool = True
+    reranker_backend: str = "auto"
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

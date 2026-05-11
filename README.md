@@ -21,6 +21,7 @@ Proposed multi-agent path:
 - Planner Agent
 - Retriever Agent
 - Adaptive Context Selection Agent (dynamic top-k + redundancy removal)
+- Reranking Layer (optional cross-encoder with coverage-aware scoring)
 - Generator Agent (provider abstraction: OpenAI / Ollama / extractive fallback)
 - Verification Agent (supported/unsupported claims + confidence + regeneration trigger)
 
@@ -136,6 +137,7 @@ Generated structured outputs:
 
 Metrics included:
 - retrieval: chunk counts, context reduction %, similarity stats, redundancy removed
+- reranking: evidence coverage score, reranking gain, pre/post reranking retrieval comparison
 - generation: answer length, relevance score, faithfulness score, unsupported claims, hallucination flag
 - verification: verified status, confidence, supported/unsupported claim counts, regeneration trigger
 - system: latency, context token estimate, baseline-vs-proposed comparison deltas

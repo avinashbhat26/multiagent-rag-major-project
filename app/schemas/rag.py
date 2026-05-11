@@ -29,6 +29,10 @@ class AskResponse(BaseModel):
     unsupported_claims: list[str] = Field(default_factory=list)
     retrieved_context_count: int
     selected_context_count: int
+    retrieved_before_reranking_count: int = 0
+    retrieved_after_reranking_count: int = 0
+    evidence_coverage_score: float = 0.0
+    reranking_gain: float = 0.0
     dynamic_top_k: int = 0
     removed_redundant_chunks: int = 0
     regenerated: bool = False

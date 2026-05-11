@@ -35,6 +35,8 @@ class EvaluationRecord:
     average_similarity_score: float
     max_similarity_score: float
     min_similarity_score: float
+    evidence_coverage_score: float
+    reranking_gain: float
     duplicate_or_redundant_chunks_removed: int
     answer_length: int
     answer_relevance_score: float
@@ -175,6 +177,8 @@ class PaperEvaluationRunner:
             average_similarity_score=round(avg_score, 4),
             max_similarity_score=round(max_score, 4),
             min_similarity_score=round(min_score, 4),
+            evidence_coverage_score=round(response.evidence_coverage_score, 4),
+            reranking_gain=round(response.reranking_gain, 4),
             duplicate_or_redundant_chunks_removed=response.removed_redundant_chunks,
             answer_length=len(response.answer),
             answer_relevance_score=relevance,
@@ -264,6 +268,14 @@ class PaperEvaluationRunner:
             "Unsupported Claims Count": (
                 avg([float(row.unsupported_claims_count) for row in baseline]),
                 avg([float(row.unsupported_claims_count) for row in proposed]),
+            ),
+            "Avg Evidence Coverage Score": (
+                avg([row.evidence_coverage_score for row in baseline]),
+                avg([row.evidence_coverage_score for row in proposed]),
+            ),
+            "Avg Reranking Gain": (
+                avg([row.reranking_gain for row in baseline]),
+                avg([row.reranking_gain for row in proposed]),
             ),
         }
 

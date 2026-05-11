@@ -7,6 +7,7 @@ from app.agents.context_selector import AdaptiveContextSelectionAgent
 from app.agents.generator import GeneratorAgent
 from app.agents.planner import PlannerAgent
 from app.agents.query_analyzer import QueryAnalyzerAgent
+from app.agents.reranker import RerankerAgent
 from app.agents.retriever import RetrieverAgent
 from app.agents.verifier import VerificationAgent
 from app.core.config import settings
@@ -28,6 +29,7 @@ class MultiAgentRAGService:
         self.embedder = EmbeddingService()
         self.store = FaissStore()
         self.retriever = RetrieverAgent(self.embedder, self.store)
+        self.reranker = RerankerAgent()
         self.parser = PDFParser()
         self.chunker = TextChunker(
             chunk_size_words=settings.chunk_size_words,
@@ -46,7 +48,7 @@ class MultiAgentRAGService:
         if self.store.total_chunks == 0:
             return normalized, []
 
-        retrieval_k = top_k or settings.top_k
+        retrieval_k = (top_k or settings.top_k) * max(1, settings.retrieval_pool_multiplier)
         candidates = self.retriever.retrieve(normalized, top_k=retrieval_k)
         return normalized, candidates
 
@@ -134,20 +136,37 @@ class MultiAgentRAGService:
                 unsupported_claims=[],
                 retrieved_context_count=0,
                 selected_context_count=0,
+                retrieved_before_reranking_count=0,
+                retrieved_after_reranking_count=0,
+                evidence_coverage_score=0.0,
+                reranking_gain=0.0,
                 dynamic_top_k=0,
                 removed_redundant_chunks=0,
                 regenerated=False,
                 contexts=[],
             )
 
+        top_k_value = top_k or settings.top_k
         dynamic_top_k = len(candidates)
         removed_redundant_chunks = 0
+        evidence_coverage_score = 0.0
+        reranking_gain = 0.0
+        retrieved_before_reranking_count = len(candidates)
+        retrieved_after_reranking_count = len(candidates)
         if mode == "baseline":
-            selected = candidates
+            selected = candidates[:top_k_value]
+            retrieved_after_reranking_count = len(selected)
         else:
             analysis = self.query_analyzer.analyze(normalized)
             self.planner.plan(analysis)
-            selection = self.selector.select(candidates)
+            reranked_candidates = candidates
+            if settings.enable_reranking:
+                rerank = self.reranker.rerank(normalized, candidates, top_k=top_k_value)
+                reranked_candidates = rerank.reranked_chunks
+                evidence_coverage_score = rerank.evidence_coverage_score
+                reranking_gain = rerank.reranking_gain
+                retrieved_after_reranking_count = len(reranked_candidates)
+            selection = self.selector.select(reranked_candidates)
             selected = selection.selected_chunks
             dynamic_top_k = selection.dynamic_top_k
             removed_redundant_chunks = selection.removed_as_redundant
@@ -197,6 +216,10 @@ class MultiAgentRAGService:
             unsupported_claims=verification.unsupported_claims,
             retrieved_context_count=len(candidates),
             selected_context_count=len(selected),
+            retrieved_before_reranking_count=retrieved_before_reranking_count,
+            retrieved_after_reranking_count=retrieved_after_reranking_count,
+            evidence_coverage_score=evidence_coverage_score,
+            reranking_gain=reranking_gain,
             dynamic_top_k=dynamic_top_k,
             removed_redundant_chunks=removed_redundant_chunks,
             regenerated=regenerated,
