@@ -36,7 +36,7 @@ class MultiAgentRAGService:
         )
         self.selector = AdaptiveContextSelectionAgent()
         self.generator = GeneratorAgent()
-        self.verifier = VerificationAgent()
+        self.verifier = VerificationAgent(self.embedder)
 
     def _retrieve_chunks(
         self, question: str, top_k: int | None = None
@@ -129,6 +129,7 @@ class MultiAgentRAGService:
                 llm_provider=self.generator.last_used_provider,
                 verified=False,
                 confidence=0.0,
+                semantic_similarity=0.0,
                 supported_claims=[],
                 unsupported_claims=[],
                 retrieved_context_count=0,
@@ -191,6 +192,7 @@ class MultiAgentRAGService:
             llm_provider=self.generator.last_used_provider,
             verified=verification.verified,
             confidence=verification.confidence,
+            semantic_similarity=verification.semantic_similarity,
             supported_claims=verification.supported_claims,
             unsupported_claims=verification.unsupported_claims,
             retrieved_context_count=len(candidates),

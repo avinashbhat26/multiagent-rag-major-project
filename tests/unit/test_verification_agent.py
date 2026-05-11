@@ -1,9 +1,10 @@
 from app.agents.verifier import VerificationAgent
 from app.models.document import RetrievedChunk
+from app.retrieval.embedding_service import EmbeddingService
 
 
 def test_verifier_produces_supported_and_unsupported_claims() -> None:
-    agent = VerificationAgent()
+    agent = VerificationAgent(EmbeddingService(backend="hash"))
     context = [
         RetrievedChunk(
             chunk_id="doc:p1:c1",
@@ -20,3 +21,4 @@ def test_verifier_produces_supported_and_unsupported_claims() -> None:
     assert result.supported_claims
     assert result.unsupported_claims
     assert 0.0 <= result.confidence <= 0.99
+    assert 0.0 <= result.semantic_similarity <= 1.0

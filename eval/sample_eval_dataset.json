@@ -1,0 +1,12 @@
+{
+  "samples": [
+    {
+      "question": "What are the attendance rules?",
+      "expected_keywords": ["attendance", "75%", "course", "grade"]
+    },
+    {
+      "question": "What happens if attendance is below minimum?",
+      "expected_keywords": ["less than 75%", "W grade", "not eligible"]
+    }
+  ]
+}

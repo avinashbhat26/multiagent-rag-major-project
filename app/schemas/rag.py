@@ -24,6 +24,7 @@ class AskResponse(BaseModel):
     llm_provider: str
     verified: bool
     confidence: float
+    semantic_similarity: float = 0.0
     supported_claims: list[str] = Field(default_factory=list)
     unsupported_claims: list[str] = Field(default_factory=list)
     retrieved_context_count: int
