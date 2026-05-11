@@ -7,14 +7,15 @@ from app.agents.context_selector import AdaptiveContextSelectionAgent
 from app.agents.generator import GeneratorAgent
 from app.agents.planner import PlannerAgent
 from app.agents.query_analyzer import QueryAnalyzerAgent
+from app.agents.retriever import RetrieverAgent
 from app.agents.verifier import VerificationAgent
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.ingestion.pdf_parser import PDFParser
+from app.models.document import RetrievedChunk
 from app.processing.text_chunker import TextChunker
 from app.retrieval.embedding_service import EmbeddingService
 from app.retrieval.faiss_store import FaissStore
-from app.models.document import RetrievedChunk
 from app.schemas.rag import AskResponse, ContextChunk, IndexResponse, RetrieveResponse
 
 logger = get_logger(__name__)
@@ -25,7 +26,8 @@ class MultiAgentRAGService:
         self.query_analyzer = QueryAnalyzerAgent()
         self.planner = PlannerAgent()
         self.embedder = EmbeddingService()
-        self.retriever = FaissStore()
+        self.store = FaissStore()
+        self.retriever = RetrieverAgent(self.embedder, self.store)
         self.parser = PDFParser()
         self.chunker = TextChunker(
             chunk_size_words=settings.chunk_size_words,
@@ -39,18 +41,18 @@ class MultiAgentRAGService:
     def _retrieve_chunks(
         self, question: str, top_k: int | None = None
     ) -> tuple[str, list[RetrievedChunk]]:
-        normalized = self.query_analyzer.analyze(question)
-        if self.retriever.total_chunks == 0:
+        analysis = self.query_analyzer.analyze(question)
+        normalized = analysis.normalized_question
+        if self.store.total_chunks == 0:
             return normalized, []
 
-        query_vector = self.embedder.embed([normalized])[0]
         retrieval_k = top_k or settings.top_k
-        candidates = self.retriever.search(query_vector, top_k=retrieval_k)
+        candidates = self.retriever.retrieve(normalized, top_k=retrieval_k)
         return normalized, candidates
 
     def index_documents(self, files: Sequence[UploadFile], reset: bool = False) -> IndexResponse:
         if reset:
-            self.retriever.reset()
+            self.store.reset()
 
         all_chunks = []
         indexed_files = 0
@@ -78,17 +80,17 @@ class MultiAgentRAGService:
             return IndexResponse(
                 indexed_files=0,
                 indexed_chunks=0,
-                total_chunks=self.retriever.total_chunks,
+                total_chunks=self.store.total_chunks,
                 sources=[],
             )
 
         embeddings = self.embedder.embed([chunk.text for chunk in all_chunks])
-        indexed_chunk_count = self.retriever.add(all_chunks, embeddings)
+        indexed_chunk_count = self.store.add(all_chunks, embeddings)
 
         return IndexResponse(
             indexed_files=indexed_files,
             indexed_chunks=indexed_chunk_count,
-            total_chunks=self.retriever.total_chunks,
+            total_chunks=self.store.total_chunks,
             sources=sources,
         )
 
@@ -127,29 +129,49 @@ class MultiAgentRAGService:
                 llm_provider=self.generator.last_used_provider,
                 verified=False,
                 confidence=0.0,
+                supported_claims=[],
+                unsupported_claims=[],
                 retrieved_context_count=0,
                 selected_context_count=0,
+                dynamic_top_k=0,
+                removed_redundant_chunks=0,
+                regenerated=False,
                 contexts=[],
             )
 
+        dynamic_top_k = len(candidates)
+        removed_redundant_chunks = 0
         if mode == "baseline":
             selected = candidates
         else:
-            self.planner.plan(normalized)
-            selected = self.selector.select(candidates)
+            analysis = self.query_analyzer.analyze(normalized)
+            self.planner.plan(analysis)
+            selection = self.selector.select(candidates)
+            selected = selection.selected_chunks
+            dynamic_top_k = selection.dynamic_top_k
+            removed_redundant_chunks = selection.removed_as_redundant
 
         answer = self.generator.generate(normalized, selected)
-        verified, confidence = self.verifier.verify(answer, selected)
+        verification = self.verifier.verify(answer, selected, threshold=settings.verify_threshold)
 
-        if mode == "multi_agent" and not verified and selected:
-            retry_context = selected[: max(1, min(2, len(selected)))]
+        regenerated = False
+        if (
+            mode == "multi_agent"
+            and verification.confidence < settings.verify_threshold
+            and selected
+        ):
+            retry_context = selected[: max(1, min(3, len(selected)))]
             retry_answer = self.generator.generate(normalized, retry_context)
-            retry_verified, retry_confidence = self.verifier.verify(retry_answer, retry_context)
-            if retry_confidence > confidence:
+            retry_verification = self.verifier.verify(
+                retry_answer,
+                retry_context,
+                threshold=settings.verify_threshold,
+            )
+            if retry_verification.confidence > verification.confidence:
                 selected = retry_context
                 answer = retry_answer
-                verified = retry_verified
-                confidence = retry_confidence
+                verification = retry_verification
+                regenerated = True
 
         response_contexts = [
             ContextChunk(
@@ -167,9 +189,14 @@ class MultiAgentRAGService:
             mode=mode,
             answer=answer,
             llm_provider=self.generator.last_used_provider,
-            verified=verified,
-            confidence=confidence,
+            verified=verification.verified,
+            confidence=verification.confidence,
+            supported_claims=verification.supported_claims,
+            unsupported_claims=verification.unsupported_claims,
             retrieved_context_count=len(candidates),
             selected_context_count=len(selected),
+            dynamic_top_k=dynamic_top_k,
+            removed_redundant_chunks=removed_redundant_chunks,
+            regenerated=regenerated,
             contexts=response_contexts,
         )

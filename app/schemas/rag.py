@@ -24,8 +24,13 @@ class AskResponse(BaseModel):
     llm_provider: str
     verified: bool
     confidence: float
+    supported_claims: list[str] = Field(default_factory=list)
+    unsupported_claims: list[str] = Field(default_factory=list)
     retrieved_context_count: int
     selected_context_count: int
+    dynamic_top_k: int = 0
+    removed_redundant_chunks: int = 0
+    regenerated: bool = False
     contexts: list[ContextChunk] = Field(default_factory=list)
 
 

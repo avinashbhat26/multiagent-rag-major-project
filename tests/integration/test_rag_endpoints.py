@@ -8,7 +8,7 @@ from app.main import app
 
 def test_index_retrieve_and_ask_endpoints() -> None:
     client = TestClient(app)
-    service.retriever.reset()
+    service.store.reset()
     service.embedder.backend = "hash"
     service.parser.extract_pages = lambda _bytes: [(1, "alpha beta gamma " * 100)]  # type: ignore[method-assign]
 
@@ -31,3 +31,4 @@ def test_index_retrieve_and_ask_endpoints() -> None:
     body = ask_response.json()
     assert body["mode"] == "baseline"
     assert body["selected_context_count"] >= 1
+    assert "supported_claims" in body
