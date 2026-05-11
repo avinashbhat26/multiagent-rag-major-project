@@ -112,27 +112,33 @@ python -m pytest -q
 The project includes a modular evaluation runner for baseline vs multi-agent comparison.
 
 Inputs:
-- dataset JSON with questions and expected keywords
+- `eval/questions.jsonl` with:
+  - `question_id`
+  - `question`
+  - `expected_answer`
+  - `expected_source_keywords`
+  - `difficulty`
+  - `query_type`
 - indexed knowledge base already loaded in the backend service
 
 Run:
 ```bash
-python scripts/run_evaluation.py --dataset eval/sample_eval_dataset.json --output-dir eval/results
+python scripts/run_evaluation.py --mode both
+python scripts/run_evaluation.py --mode baseline
+python scripts/run_evaluation.py --mode proposed
+python scripts/run_evaluation.py --mode both --questions eval/questions.jsonl --output-dir eval/results
 ```
 
 Generated structured outputs:
-- `eval/results/evaluation_details.csv` (per-query metrics)
-- `eval/results/evaluation_summary.csv` (aggregated mode-level metrics)
-- `eval/results/evaluation_table.md` (markdown comparison table)
+- `eval/results/detailed_results.csv` (per-question detailed metrics)
+- `eval/results/summary_metrics.csv` (baseline vs proposed summary)
+- `eval/results/evaluation_report.md` (human-readable report and comparison table)
 
 Metrics included:
-- retrieval quality
-- context reduction ratio
-- faithfulness (semantic similarity)
-- confidence score
-- verification rate
-- regeneration rate
-- latency
+- retrieval: chunk counts, context reduction %, similarity stats, redundancy removed
+- generation: answer length, relevance score, faithfulness score, unsupported claims, hallucination flag
+- verification: verified status, confidence, supported/unsupported claim counts, regeneration trigger
+- system: latency, context token estimate, baseline-vs-proposed comparison deltas
 
 ## CI/CD
 - CI: `ruff check` + `ruff format --check` + `pytest` + Docker build via GitHub Actions

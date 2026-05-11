@@ -1,31 +1,43 @@
 from __future__ import annotations
 
 import argparse
+import os
 
-from eval.evaluator import EvaluationRunner
+from app.agents.generator import GeneratorAgent
+from app.llm.providers import ExtractiveProvider
 from app.services.rag_service import MultiAgentRAGService
+from eval.evaluator import PaperEvaluationRunner
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run baseline vs multi-agent evaluation.")
+    parser = argparse.ArgumentParser(description="Run reproducible paper evaluation for RAG.")
     parser.add_argument(
-        "--dataset",
-        default="eval/sample_eval_dataset.json",
-        help="Path to evaluation dataset JSON file.",
+        "--mode",
+        default="both",
+        choices=["both", "baseline", "proposed"],
+        help="Evaluation mode: baseline, proposed, or both.",
+    )
+    parser.add_argument(
+        "--questions",
+        default="eval/questions.jsonl",
+        help="Path to JSONL questions file.",
     )
     parser.add_argument(
         "--output-dir",
         default="eval/results",
-        help="Directory where CSV and table outputs will be written.",
+        help="Directory where result artifacts will be written.",
     )
     args = parser.parse_args()
 
     service = MultiAgentRAGService()
-    runner = EvaluationRunner(service)
-    samples = runner.load_samples(args.dataset)
-    rows = runner.evaluate(samples)
-    runner.write_outputs(rows, args.output_dir)
-    print(f"Evaluation completed. Outputs written to: {args.output_dir}")
+    if not os.getenv("OPENAI_API_KEY"):
+        service.generator = GeneratorAgent(provider=ExtractiveProvider())
+
+    runner = PaperEvaluationRunner(service)
+    questions = runner.load_questions(args.questions)
+    records = runner.run(questions, mode=args.mode)
+    runner.write_outputs(records, args.output_dir)
+    print(f"Evaluation completed for mode={args.mode}. Outputs written to: {args.output_dir}")
 
 
 if __name__ == "__main__":
