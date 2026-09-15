@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Protocol
 
 import httpx
@@ -32,9 +33,95 @@ class ExtractiveProvider:
     def generate(self, question: str, context: list[RetrievedChunk]) -> str:
         if not context:
             return "No relevant context was found to answer the question."
+
+        best_sentence, source, page = self._best_evidence_sentence(question, context)
+        if best_sentence:
+            return (
+                f"Based on retrieved evidence, the answer to '{question}' is: "
+                f"{best_sentence} (Source: {source}, page {page})"
+            )
+
         top_chunks = context[: min(2, len(context))]
         evidence = " ".join(chunk.text for chunk in top_chunks)
         return f"Based on retrieved evidence, the answer to '{question}' is: {evidence[:500]}"
+
+    def _best_evidence_sentence(
+        self, question: str, context: list[RetrievedChunk]
+    ) -> tuple[str, str, int]:
+        question_terms = self._terms(question)
+        question_lower = question.lower()
+        cue_terms = self._cue_terms(question_lower)
+
+        best: tuple[float, str, str, int] = (0.0, "", "", 0)
+        for chunk in context:
+            for sentence in self._sentences(chunk.text):
+                sentence_terms = self._terms(sentence)
+                if not sentence_terms:
+                    continue
+
+                overlap = len(question_terms & sentence_terms) / max(1, len(question_terms))
+                cue_bonus = 0.15 * len(cue_terms & sentence_terms)
+                source_bonus = min(0.15, max(0.0, chunk.score) * 0.15)
+                definition_bonus = self._definition_bonus(question_lower, sentence.lower())
+                score = overlap + cue_bonus + source_bonus + definition_bonus
+
+                if score > best[0]:
+                    best = (score, sentence, chunk.source, chunk.page)
+
+        if best[0] < 0.25:
+            return "", "", 0
+        return best[1], best[2], best[3]
+
+    @staticmethod
+    def _sentences(text: str) -> list[str]:
+        normalized = " ".join(text.split())
+        parts = re.split(r"(?<=[.!?])\s+", normalized)
+        return [part.strip() for part in parts if part.strip()]
+
+    @staticmethod
+    def _terms(text: str) -> set[str]:
+        stop = {
+            "the",
+            "is",
+            "are",
+            "a",
+            "an",
+            "of",
+            "to",
+            "for",
+            "and",
+            "in",
+            "on",
+            "with",
+            "which",
+            "what",
+            "from",
+            "word",
+        }
+        return {token for token in re.findall(r"[a-zA-Z0-9%]+", text.lower()) if token not in stop}
+
+    @staticmethod
+    def _cue_terms(question_lower: str) -> set[str]:
+        cues = set()
+        if any(term in question_lower for term in ["derived", "origin", "etymology"]):
+            cues |= {"derived", "origin", "greek", "latin", "word", "means", "meaning"}
+        if any(term in question_lower for term in ["minimum", "requirement", "rule"]):
+            cues |= {"must", "minimum", "required", "rule", "shall"}
+        if any(term in question_lower for term in ["list", "types", "forms"]):
+            cues |= {"include", "includes", "following", "types"}
+        return cues
+
+    @staticmethod
+    def _definition_bonus(question_lower: str, sentence_lower: str) -> float:
+        if "derived" in question_lower and any(
+            phrase in sentence_lower for phrase in ["derived from", "comes from", "origin"]
+        ):
+            return 0.5
+        if "means" in question_lower and any(
+            phrase in sentence_lower for phrase in ["means", "meaning", "defined as"]
+        ):
+            return 0.35
+        return 0.0
 
 
 @dataclass(slots=True)

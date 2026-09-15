@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Agent RAG Demo</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">Research Prototype</p>
+          <h1>Multi-Agent RAG</h1>
+          <p class="subtitle">Reliable QA with adaptive evidence selection and verification.</p>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <span>Status</span>
+            <button class="ghost-button" id="refresh-status" type="button">Refresh</button>
+          </div>
+          <div class="status-grid">
+            <div>
+              <span class="metric-label">Chunks</span>
+              <strong id="status-chunks">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Provider</span>
+              <strong id="status-provider">-</strong>
+            </div>
+            <div>
+              <span class="metric-label">Embeddings</span>
+              <strong id="status-embedding">-</strong>
+            </div>
+            <div>
+              <span class="metric-label">Reranking</span>
+              <strong id="status-reranking">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <label class="field-label" for="mode">Mode</label>
+          <select id="mode">
+            <option value="multi_agent" selected>Proposed Multi-Agent</option>
+            <option value="baseline">Baseline RAG</option>
+          </select>
+
+          <label class="field-label" for="top-k">Top-K</label>
+          <input id="top-k" type="number" min="1" max="20" value="5" />
+
+          <button class="danger-button" id="reset-index" type="button">Reset Knowledge Base</button>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section class="hero-band">
+          <div>
+            <p class="eyebrow">Document-grounded QA</p>
+            <h2>Ask questions against uploaded PDFs and inspect the evidence trail.</h2>
+          </div>
+          <div class="hero-actions">
+            <button class="secondary-button" id="preview-retrieval" type="button">Preview Retrieval</button>
+            <button class="primary-button" id="ask-question" type="button">Generate Answer</button>
+          </div>
+        </section>
+
+        <section class="upload-band">
+          <div class="upload-box" id="drop-zone">
+            <input id="pdf-files" type="file" accept="application/pdf" multiple />
+            <div>
+              <strong>Upload PDF documents</strong>
+              <p>Drop files here or choose PDFs from your machine.</p>
+            </div>
+          </div>
+          <button class="primary-button" id="index-docs" type="button">Build Knowledge Base</button>
+          <div id="file-list" class="file-list"></div>
+        </section>
+
+        <section class="question-band">
+          <label class="field-label" for="question">Question</label>
+          <textarea id="question" rows="4">word history is derived from which word?</textarea>
+        </section>
+
+        <section class="results-grid">
+          <article class="result-panel answer-panel">
+            <div class="panel-heading">
+              <span>Generated Answer</span>
+              <span class="badge" id="answer-provider">-</span>
+            </div>
+            <p id="answer-text" class="answer-text">No answer generated yet.</p>
+          </article>
+
+          <article class="result-panel">
+            <div class="panel-heading">
+              <span>Verification</span>
+              <span class="badge" id="verified-badge">Waiting</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <span class="metric-label">Confidence</span>
+                <strong id="confidence">0.000</strong>
+              </div>
+              <div>
+                <span class="metric-label">Faithfulness</span>
+                <strong id="faithfulness">0.000</strong>
+              </div>
+              <div>
+                <span class="metric-label">Coverage</span>
+                <strong id="coverage">0.000</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="results-grid">
+          <article class="result-panel">
+            <div class="panel-heading">
+              <span>Pipeline Metrics</span>
+              <span class="badge" id="query-complexity">-</span>
+            </div>
+            <div class="metric-row">
+              <div>
+                <span class="metric-label">Retrieved</span>
+                <strong id="retrieved-count">0</strong>
+              </div>
+              <div>
+                <span class="metric-label">Selected</span>
+                <strong id="selected-count">0</strong>
+              </div>
+              <div>
+                <span class="metric-label">Rerank Gain</span>
+                <strong id="rerank-gain">0.000</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="result-panel">
+            <div class="panel-heading">
+              <span>Timings</span>
+              <span class="badge" id="total-time">0 ms</span>
+            </div>
+            <div id="timings-list" class="compact-list"></div>
+          </article>
+        </section>
+
+        <section class="result-panel full-width">
+          <div class="panel-heading">
+            <span>Retrieved Evidence</span>
+            <span class="badge" id="context-count">0 chunks</span>
+          </div>
+          <div id="contexts" class="contexts"></div>
+        </section>
+
+        <section class="result-panel full-width">
+          <div class="panel-heading">
+            <span>Agent Trace</span>
+            <span class="badge" id="trace-count">0 steps</span>
+          </div>
+          <div id="agent-trace" class="trace-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="/ui/app.js"></script>
+  </body>
+</html>

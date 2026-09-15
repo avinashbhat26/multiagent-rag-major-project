@@ -75,6 +75,29 @@ Then open `http://localhost:8501` and:
   - confidence score
   - retrieved chunks (source, page, score, text)
 
+## Browser Frontend (No Paid Hosting Required)
+The project also includes a static browser UI served directly by FastAPI.
+
+Run:
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open:
+```text
+http://127.0.0.1:8000/ui/
+```
+
+The browser UI supports:
+- PDF upload and indexing
+- baseline vs proposed multi-agent mode
+- answer generation
+- retrieval preview
+- verification metrics
+- retrieved evidence cards
+- pipeline timings
+- agent trace display
+
 ## Environment
 Copy `.env.example` to `.env` and fill values as needed.
 
