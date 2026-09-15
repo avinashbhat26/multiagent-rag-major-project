@@ -26,6 +26,26 @@ function setLoading(isLoading) {
   });
 }
 
+function setOperationStatus(kind, message, percent, isVisible = true) {
+  const status = $(`${kind}-status`);
+  const text = $(`${kind}-status-text`);
+  const percentText = $(`${kind}-status-percent`);
+  const progress = $(`${kind}-progress`);
+
+  if (!status || !text || !percentText || !progress) {
+    return;
+  }
+
+  status.classList.toggle("hidden", !isVisible);
+  text.textContent = message;
+  percentText.textContent = `${percent}%`;
+  progress.style.width = `${percent}%`;
+}
+
+function hideOperationStatus(kind) {
+  window.setTimeout(() => setOperationStatus(kind, "", 0, false), 900);
+}
+
 async function requestJson(path, options = {}) {
   const response = await fetch(path, options);
   if (!response.ok) {
@@ -71,14 +91,20 @@ async function indexDocuments() {
   state.files.forEach((file) => formData.append("files", file));
 
   setLoading(true);
+  setOperationStatus("index", "Preparing PDF files for upload...", 12);
   try {
+    setOperationStatus("index", "Uploading PDFs to backend...", 35);
     const result = await requestJson(`${api.index}?reset=true`, {
       method: "POST",
       body: formData,
     });
+    setOperationStatus("index", "Building embeddings and FAISS knowledge base...", 78);
     showToast(`Indexed ${result.indexed_chunks} chunks from ${result.indexed_files} file(s).`);
+    setOperationStatus("index", "Knowledge base ready.", 100);
     await refreshStatus();
+    hideOperationStatus("index");
   } catch (error) {
+    setOperationStatus("index", "Indexing failed. Check backend logs for details.", 100);
     showToast(`Indexing failed: ${error.message}`);
   } finally {
     setLoading(false);
@@ -118,17 +144,22 @@ async function askQuestion() {
   }
 
   setLoading(true);
+  setOperationStatus("answer", "Retrieving candidate evidence chunks...", 35);
   try {
     const result = await requestJson(api.ask, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    setOperationStatus("answer", "Generating and verifying grounded answer...", 75);
     renderAnswer(result);
     renderContexts(result.contexts || []);
     renderTrace(result.agent_trace || []);
     renderTimings(result.timings || {});
+    setOperationStatus("answer", "Answer ready.", 100);
+    hideOperationStatus("answer");
   } catch (error) {
+    setOperationStatus("answer", "Answer generation failed.", 100);
     showToast(`Question failed: ${error.message}`);
   } finally {
     setLoading(false);
@@ -143,6 +174,7 @@ async function previewRetrieval() {
   }
 
   setLoading(true);
+  setOperationStatus("answer", "Retrieving evidence preview...", 45);
   try {
     const result = await requestJson(api.retrieve, {
       method: "POST",
@@ -152,7 +184,10 @@ async function previewRetrieval() {
     $("answer-text").textContent = "Retrieval preview generated. Select Generate Answer for QA.";
     renderContexts(result.contexts || []);
     $("context-count").textContent = `${result.retrieved_context_count || 0} chunks`;
+    setOperationStatus("answer", "Retrieval preview ready.", 100);
+    hideOperationStatus("answer");
   } catch (error) {
+    setOperationStatus("answer", "Retrieval preview failed.", 100);
     showToast(`Retrieval failed: ${error.message}`);
   } finally {
     setLoading(false);

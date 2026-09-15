@@ -60,10 +60,6 @@
             <p class="eyebrow">Document-grounded QA</p>
             <h2>Ask questions against uploaded PDFs and inspect the evidence trail.</h2>
           </div>
-          <div class="hero-actions">
-            <button class="secondary-button" id="preview-retrieval" type="button">Preview Retrieval</button>
-            <button class="primary-button" id="ask-question" type="button">Generate Answer</button>
-          </div>
         </section>
 
         <section class="upload-band">
@@ -76,11 +72,33 @@
           </div>
           <button class="primary-button" id="index-docs" type="button">Build Knowledge Base</button>
           <div id="file-list" class="file-list"></div>
+          <div id="index-status" class="operation-status hidden" aria-live="polite">
+            <div class="operation-status-row">
+              <span id="index-status-text">Preparing document indexing...</span>
+              <span id="index-status-percent">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="index-progress" class="progress-fill"></div>
+            </div>
+          </div>
         </section>
 
         <section class="question-band">
           <label class="field-label" for="question">Question</label>
           <textarea id="question" rows="4">word history is derived from which word?</textarea>
+          <div class="question-actions">
+            <button class="primary-button" id="ask-question" type="button">Generate Answer</button>
+            <button class="secondary-button" id="preview-retrieval" type="button">Preview Retrieval</button>
+          </div>
+          <div id="answer-status" class="operation-status hidden" aria-live="polite">
+            <div class="operation-status-row">
+              <span id="answer-status-text">Preparing query...</span>
+              <span id="answer-status-percent">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="answer-progress" class="progress-fill"></div>
+            </div>
+          </div>
         </section>
 
         <section class="results-grid">

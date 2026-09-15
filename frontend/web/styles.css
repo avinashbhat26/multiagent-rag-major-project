@@ -187,6 +187,8 @@ strong {
     "Segoe UI",
     Verdana,
     sans-serif;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .field-label {
@@ -215,6 +217,17 @@ textarea {
 textarea {
   resize: vertical;
   line-height: 1.5;
+}
+
+.question-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.question-actions button {
+  min-width: 180px;
 }
 
 button {
@@ -295,6 +308,43 @@ button:disabled {
     Verdana,
     sans-serif;
   font-size: 13px;
+}
+
+.operation-status {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(36, 86, 166, 0.22);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f7fbff;
+  font-family:
+    "Segoe UI",
+    Verdana,
+    sans-serif;
+}
+
+.operation-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+  color: var(--blue-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbe7f7;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--accent));
+  transition: width 180ms ease;
 }
 
 .results-grid {
