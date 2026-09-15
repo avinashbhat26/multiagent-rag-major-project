@@ -10,6 +10,9 @@ class ContextSelectionResult:
     dynamic_top_k: int
     removed_as_redundant: int
     score_threshold: float
+    evidence_sufficiency_score: float
+    selection_stop_reason: str
+    redundancy_ratio: float
 
 
 class AdaptiveContextSelectionAgent:
@@ -19,13 +22,18 @@ class AdaptiveContextSelectionAgent:
         self.min_top_k = min_top_k
         self.max_top_k = max_top_k
 
-    def select(self, chunks: list[RetrievedChunk]) -> ContextSelectionResult:
+    def select(
+        self, chunks: list[RetrievedChunk], query_terms: list[str] | None = None
+    ) -> ContextSelectionResult:
         if not chunks:
             return ContextSelectionResult(
                 selected_chunks=[],
                 dynamic_top_k=0,
                 removed_as_redundant=0,
                 score_threshold=0.0,
+                evidence_sufficiency_score=0.0,
+                selection_stop_reason="no_candidates",
+                redundancy_ratio=0.0,
             )
 
         sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
@@ -35,15 +43,28 @@ class AdaptiveContextSelectionAgent:
         selected: list[RetrievedChunk] = []
         removed_as_redundant = 0
         dynamic_top_k = min(self.max_top_k, max(self.min_top_k, len(sorted_chunks) // 2))
+        covered_terms: set[str] = set()
+        target_terms = {term.lower() for term in query_terms or []}
+        stop_reason = "max_context_reached"
 
         for chunk in sorted_chunks:
             if chunk.score < score_threshold and len(selected) >= self.min_top_k:
+                stop_reason = "remaining_candidates_below_threshold"
                 continue
             if self._is_redundant(chunk, selected):
                 removed_as_redundant += 1
                 continue
             selected.append(chunk)
+            covered_terms |= self._token_set(chunk.text)
+            if (
+                target_terms
+                and target_terms.issubset(covered_terms)
+                and len(selected) >= self.min_top_k
+            ):
+                stop_reason = "evidence_sufficient"
+                break
             if len(selected) >= dynamic_top_k:
+                stop_reason = "max_context_reached"
                 break
 
         if len(selected) < self.min_top_k:
@@ -55,13 +76,23 @@ class AdaptiveContextSelectionAgent:
                     continue
                 selected.append(chunk)
                 if len(selected) >= self.min_top_k:
+                    stop_reason = "minimum_context_satisfied"
                     break
+
+        if not selected and removed_as_redundant:
+            stop_reason = "all_remaining_redundant"
+
+        sufficiency = self._evidence_sufficiency(target_terms, selected)
+        redundancy_ratio = removed_as_redundant / len(sorted_chunks)
 
         return ContextSelectionResult(
             selected_chunks=selected,
             dynamic_top_k=dynamic_top_k,
             removed_as_redundant=removed_as_redundant,
             score_threshold=score_threshold,
+            evidence_sufficiency_score=sufficiency,
+            selection_stop_reason=stop_reason,
+            redundancy_ratio=round(redundancy_ratio, 4),
         )
 
     def _is_redundant(self, candidate: RetrievedChunk, selected: list[RetrievedChunk]) -> bool:
@@ -80,3 +111,13 @@ class AdaptiveContextSelectionAgent:
     @staticmethod
     def _token_set(text: str) -> set[str]:
         return set(re.findall(r"[a-zA-Z0-9]+", text.lower()))
+
+    def _evidence_sufficiency(
+        self, target_terms: set[str], selected: list[RetrievedChunk]
+    ) -> float:
+        if not target_terms:
+            return 0.0
+        evidence_terms: set[str] = set()
+        for chunk in selected:
+            evidence_terms |= self._token_set(chunk.text)
+        return round(len(target_terms & evidence_terms) / len(target_terms), 4)

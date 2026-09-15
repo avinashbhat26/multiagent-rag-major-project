@@ -21,6 +21,8 @@ class RerankResult:
     evidence_coverage_score: float
     reranking_gain: float
     used_cross_encoder: bool
+    reranking_applied: bool
+    reranking_reason: str
 
 
 class RerankerAgent:
@@ -33,7 +35,19 @@ class RerankerAgent:
 
     def rerank(self, query: str, chunks: list[RetrievedChunk], top_k: int) -> RerankResult:
         if not chunks:
-            return RerankResult([], 0.0, 0.0, False)
+            return RerankResult([], 0.0, 0.0, False, False, "no_candidates")
+
+        should_apply, reason = self.should_rerank(chunks)
+        if not should_apply:
+            top = chunks[:top_k]
+            return RerankResult(
+                reranked_chunks=top,
+                evidence_coverage_score=self._coverage_score(query, top),
+                reranking_gain=0.0,
+                used_cross_encoder=False,
+                reranking_applied=False,
+                reranking_reason=reason,
+            )
 
         original_scores = [chunk.score for chunk in chunks[:top_k]]
         used_cross_encoder = False
@@ -43,7 +57,7 @@ class RerankerAgent:
             model = self._get_model()
             if model is not None:
                 pairs = [(query, chunk.text) for chunk in chunks]
-                ce_scores = model.predict(pairs)
+                ce_scores = model.predict(pairs, batch_size=max(1, settings.reranker_batch_size))
                 rescored = []
                 for chunk, ce_score in zip(chunks, ce_scores, strict=False):
                     blended = 0.55 * float(chunk.score) + 0.45 * float(ce_score)
@@ -77,7 +91,21 @@ class RerankerAgent:
             evidence_coverage_score=coverage,
             reranking_gain=round(gain, 4),
             used_cross_encoder=used_cross_encoder,
+            reranking_applied=True,
+            reranking_reason=reason,
         )
+
+    def should_rerank(self, chunks: list[RetrievedChunk]) -> tuple[bool, str]:
+        if not settings.enable_reranking:
+            return False, "disabled_by_configuration"
+        if len(chunks) < settings.rerank_min_candidates:
+            return False, "too_few_candidates"
+        if len(chunks) < 2:
+            return False, "single_candidate"
+        score_gap = chunks[0].score - chunks[1].score
+        if score_gap >= settings.rerank_score_gap_threshold:
+            return False, "top_candidate_confident"
+        return True, "ambiguous_retrieval_scores"
 
     def _get_model(self) -> CrossEncoder | None:
         if self._model is not None:

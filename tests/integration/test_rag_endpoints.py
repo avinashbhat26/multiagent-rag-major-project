@@ -32,3 +32,12 @@ def test_index_retrieve_and_ask_endpoints() -> None:
     assert body["mode"] == "baseline"
     assert body["selected_context_count"] >= 1
     assert "supported_claims" in body
+    assert "timings" in body
+    assert "agent_trace" in body
+    assert body["timings"]["total_ms"] >= 0.0
+
+    status_response = client.get("/rag/status")
+    assert status_response.status_code == 200
+    status = status_response.json()
+    assert status["total_chunks"] >= 1
+    assert status["indexed_documents"]

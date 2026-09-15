@@ -11,5 +11,8 @@ class RetrieverAgent:
         self.store = store
 
     def retrieve(self, query: str, top_k: int) -> list[RetrievedChunk]:
-        query_vector = self.embedder.embed([query])[0]
+        query_vector = self.embedder.embed_query(query)
+        return self.retrieve_by_embedding(query_vector, top_k=top_k)
+
+    def retrieve_by_embedding(self, query_vector, top_k: int) -> list[RetrievedChunk]:  # noqa: ANN001
         return self.store.search(query_vector, top_k=top_k)

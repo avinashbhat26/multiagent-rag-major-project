@@ -1,0 +1,18 @@
+{
+  "documents": [
+    {
+      "document_id": "academic_rulebook",
+      "document_name": "VNIT Academic Rule Book",
+      "domain": "academics",
+      "file_path": "C:\\Users\\avina\\OneDrive\\Desktop\\VNIT\\AcademicRuleBook.pdf",
+      "description": "Institute academic rules including attendance, grading, exams, and degree requirements."
+    },
+    {
+      "document_id": "ipr_policy",
+      "document_name": "VNIT IPR Policy",
+      "domain": "policy",
+      "file_path": "C:\\Users\\avina\\Downloads\\Draft-VNIT-IPR_Policy-December-2018-13072022-for-website.pdf",
+      "description": "Institute intellectual property rights policy covering ownership, filing, confidentiality, and sharing."
+    }
+  ]
+}

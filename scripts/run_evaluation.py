@@ -14,35 +14,29 @@ def main() -> None:
     from app.agents.generator import GeneratorAgent
     from app.llm.providers import ExtractiveProvider
     from app.services.rag_service import MultiAgentRAGService
-    from eval.evaluator import PaperEvaluationRunner
+    from eval.evaluator import MultiDocumentEvaluationRunner
 
-    parser = argparse.ArgumentParser(description="Run reproducible paper evaluation for RAG.")
+    parser = argparse.ArgumentParser(description="Run multi-document paper evaluation for RAG.")
     parser.add_argument(
         "--mode",
         default="both",
         choices=["both", "baseline", "proposed"],
-        help="Evaluation mode: baseline, proposed, or both.",
+        help="Evaluation mode.",
     )
     parser.add_argument(
-        "--questions",
-        default="eval/questions.jsonl",
-        help="Path to JSONL questions file.",
+        "--documents",
+        default="eval/evaluation_documents.json",
+        help="Path to document configuration JSON.",
+    )
+    parser.add_argument(
+        "--questions-dir",
+        default="eval/questions",
+        help="Path to directory containing document question JSONL files.",
     )
     parser.add_argument(
         "--output-dir",
         default="eval/results",
-        help="Directory where result artifacts will be written.",
-    )
-    parser.add_argument(
-        "--pdf",
-        action="append",
-        default=[],
-        help="PDF path to index before evaluation. Can be provided multiple times.",
-    )
-    parser.add_argument(
-        "--reset-index",
-        action="store_true",
-        help="Reset index before indexing provided PDFs.",
+        help="Directory for generated evaluation outputs.",
     )
     args = parser.parse_args()
 
@@ -50,31 +44,13 @@ def main() -> None:
     if not os.getenv("OPENAI_API_KEY"):
         service.generator = GeneratorAgent(provider=ExtractiveProvider())
 
-    if args.pdf:
-        from io import BytesIO
+    runner = MultiDocumentEvaluationRunner(service)
+    documents, warnings = runner.load_documents(args.documents)
+    for warning in warnings:
+        print(f"WARNING: {warning}")
 
-        from fastapi import UploadFile
-
-        uploads: list[UploadFile] = []
-        for pdf_path in args.pdf:
-            pdf_file = Path(pdf_path)
-            if not pdf_file.exists():
-                raise FileNotFoundError(f"PDF not found: {pdf_file}")
-            uploads.append(
-                UploadFile(
-                    filename=pdf_file.name,
-                    file=BytesIO(pdf_file.read_bytes()),
-                )
-            )
-        index_result = service.index_documents(uploads, reset=args.reset_index)
-        print(
-            "Indexed before evaluation:",
-            f"files={index_result.indexed_files}, chunks={index_result.indexed_chunks}, total={index_result.total_chunks}",
-        )
-
-    runner = PaperEvaluationRunner(service)
-    questions = runner.load_questions(args.questions)
-    records = runner.run(questions, mode=args.mode)
+    questions_by_doc = runner.load_questions_dir(args.questions_dir)
+    records = runner.run(documents, questions_by_doc, mode=args.mode)
     runner.write_outputs(records, args.output_dir)
     print(f"Evaluation completed for mode={args.mode}. Outputs written to: {args.output_dir}")
 

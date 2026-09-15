@@ -8,6 +8,7 @@ class QueryAnalysis:
     is_multi_part: bool
     detected_intent: str
     keywords: list[str]
+    complexity: str
 
 
 class QueryAnalyzerAgent:
@@ -49,10 +50,17 @@ class QueryAnalyzerAgent:
         tokens = re.findall(r"[a-zA-Z0-9]+", lower)
         keywords = [token for token in tokens if token not in self._stop_words]
         keywords = keywords[:8]
+        if is_multi_part or intent in {"comparison", "summarization"} or len(keywords) > 6:
+            complexity = "complex"
+        elif len(keywords) <= 3 and intent == "factoid":
+            complexity = "simple"
+        else:
+            complexity = "medium"
 
         return QueryAnalysis(
             normalized_question=normalized,
             is_multi_part=is_multi_part,
             detected_intent=intent,
             keywords=keywords,
+            complexity=complexity,
         )

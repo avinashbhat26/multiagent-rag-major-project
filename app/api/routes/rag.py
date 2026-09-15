@@ -4,6 +4,7 @@ from app.schemas.rag import (
     AskRequest,
     AskResponse,
     IndexResponse,
+    RagStatusResponse,
     RetrieveRequest,
     RetrieveResponse,
 )
@@ -30,3 +31,18 @@ def ask_question(payload: AskRequest) -> AskResponse:
 @router.post("/retrieve", response_model=RetrieveResponse)
 def retrieve_context(payload: RetrieveRequest) -> RetrieveResponse:
     return service.retrieve(payload.question, top_k=payload.top_k)
+
+
+@router.get("/status", response_model=RagStatusResponse)
+def get_status() -> RagStatusResponse:
+    return service.status()
+
+
+@router.get("/documents")
+def list_documents() -> dict[str, object]:
+    return {"documents": service.status().indexed_documents}
+
+
+@router.post("/reset", response_model=RagStatusResponse)
+def reset_knowledge_base() -> RagStatusResponse:
+    return service.reset()

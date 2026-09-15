@@ -1,0 +1,24 @@
+\begin{table}[t]
+\caption{Baseline vs Proposed Multi-Agent RAG Results}
+\label{tab:rag_results}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\hline
+Metric & Baseline & Proposed & Delta \\
+\hline
+avg\_context\_reduction\_percentage & 66.6700 & 86.6700 & +20.0000 \\
+avg\_confidence\_score & 0.9529 & 0.8832 & -0.0697 \\
+verification\_pass\_rate & 0.8667 & 0.7667 & -0.1000 \\
+avg\_faithfulness\_score & 0.8932 & 0.8903 & -0.0029 \\
+avg\_answer\_relevance\_score & 0.7540 & 0.8011 & +0.0472 \\
+avg\_latency\_ms & 95.8217 & 813.9603 & +718.1387 \\
+avg\_retrieved\_chunks & 15.0000 & 15.0000 & +0.0000 \\
+avg\_selected\_chunks & 5.0000 & 2.0000 & -3.0000 \\
+unsupported\_claims\_count & 0.1333 & 0.2333 & +0.1000 \\
+avg\_evidence\_coverage\_score & 0.0000 & 0.6976 & +0.6976 \\
+avg\_reranking\_gain & 0.0000 & -1.1457 & -1.1457 \\
+\hline
+\end{tabular}%
+}
+\end{table}

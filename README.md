@@ -109,38 +109,39 @@ python -m ruff check .
 python -m pytest -q
 ```
 
-## Evaluation Framework
-The project includes a modular evaluation runner for baseline vs multi-agent comparison.
+## Multi-Document Evaluation for Paper Results
+This repository supports reproducible multi-document evaluation across local PDFs with per-document isolation.
 
-Inputs:
-- `eval/questions.jsonl` with:
-  - `question_id`
-  - `question`
-  - `expected_answer`
-  - `expected_source_keywords`
-  - `difficulty`
-  - `query_type`
-- indexed knowledge base already loaded in the backend service
+Document config:
+- `eval/evaluation_documents.json`
 
-Run:
+Question files:
+- `eval/questions/academic_rulebook_questions.jsonl`
+- `eval/questions/ipr_policy_questions.jsonl`
+
+Run evaluation:
 ```bash
-python scripts/run_evaluation.py --mode both
-python scripts/run_evaluation.py --mode baseline
-python scripts/run_evaluation.py --mode proposed
-python scripts/run_evaluation.py --mode both --questions eval/questions.jsonl --output-dir eval/results
+python scripts/run_evaluation.py --mode both --documents eval/evaluation_documents.json --questions-dir eval/questions --output-dir eval/results
 ```
 
-Generated structured outputs:
-- `eval/results/detailed_results.csv` (per-question detailed metrics)
-- `eval/results/summary_metrics.csv` (baseline vs proposed summary)
-- `eval/results/evaluation_report.md` (human-readable report and comparison table)
+Optional:
+```bash
+python scripts/run_evaluation.py --mode baseline --documents eval/evaluation_documents.json --questions-dir eval/questions --output-dir eval/results
+python scripts/run_evaluation.py --mode proposed --documents eval/evaluation_documents.json --questions-dir eval/questions --output-dir eval/results
+```
 
-Metrics included:
-- retrieval: chunk counts, context reduction %, similarity stats, redundancy removed
-- reranking: evidence coverage score, reranking gain, pre/post reranking retrieval comparison
-- generation: answer length, relevance score, faithfulness score, unsupported claims, hallucination flag
-- verification: verified status, confidence, supported/unsupported claim counts, regeneration trigger
-- system: latency, context token estimate, baseline-vs-proposed comparison deltas
+Generated outputs:
+- `eval/results/detailed_results.csv`
+- `eval/results/summary_metrics.csv`
+- `eval/results/document_wise_metrics.csv`
+- `eval/results/domain_wise_metrics.csv`
+- `eval/results/evaluation_report.md`
+- `eval/results/latex_results_table.tex`
+
+Generate plots:
+```bash
+python scripts/generate_evaluation_plots.py --summary eval/results/summary_metrics.csv --document-metrics eval/results/document_wise_metrics.csv --output-dir eval/results/plots
+```
 
 ## CI/CD
 - CI: `ruff check` + `ruff format --check` + `pytest` + Docker build via GitHub Actions
