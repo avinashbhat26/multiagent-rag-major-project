@@ -65,12 +65,13 @@
           <label class="field-label" for="new-kb-name">Create / Rename</label>
           <input id="new-kb-name" type="text" placeholder="Example: History textbook" />
           <div class="button-row compact-buttons">
-            <button class="primary-button slim" id="create-kb" type="button">Create</button>
-            <button class="secondary-button slim" id="rename-kb" type="button">Rename</button>
+            <button class="primary-button slim" id="create-kb" type="button">Create New</button>
+            <button class="secondary-button slim" id="rename-kb" type="button">Save Name</button>
             <button class="danger-button slim inline-danger" id="delete-kb" type="button">Delete</button>
           </div>
+          <div id="kb-operation-status" class="mini-status hidden" aria-live="polite"></div>
           <p class="helper-text">
-            Uploads, reset, retrieval, and answers use the selected knowledge base.
+            Use Save Name to rename the current indexed KB. Use Create New for a separate empty KB.
           </p>
         </section>
 
@@ -138,6 +139,10 @@
               <span>Index academic rulebooks, policy documents, or project reports.</span>
             </label>
             <div id="file-list" class="file-list">No files selected.</div>
+            <label class="checkbox-row" for="append-index">
+              <input id="append-index" type="checkbox" />
+              <span>Add to selected KB instead of replacing it</span>
+            </label>
             <div class="button-row">
               <button class="primary-button" id="index-docs" type="button">Build Index</button>
               <button class="secondary-button" id="load-examples" type="button">Use Demo Questions</button>
@@ -328,6 +333,6 @@
     </div>
 
     <div id="toast" class="toast hidden"></div>
-    <script src="/ui/app.js"></script>
+    <script src="/ui/app.js?v=kb-ui-20260916-2"></script>
   </body>
 </html>

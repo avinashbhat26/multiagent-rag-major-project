@@ -24,11 +24,38 @@ const sampleQuestions = [
 
 const $ = (id) => document.getElementById(id);
 
+function bind(id, eventName, handler) {
+  const element = $(id);
+  if (!element) {
+    console.warn(`Missing UI element: ${id}`);
+    return;
+  }
+  element.addEventListener(eventName, handler);
+}
+
 function showToast(message) {
   const toast = $("toast");
+  if (!toast) {
+    console.warn(message);
+    return;
+  }
   toast.textContent = message;
   toast.classList.remove("hidden");
   window.setTimeout(() => toast.classList.add("hidden"), 3600);
+}
+
+function showKnowledgeBaseStatus(message) {
+  const status = $("kb-operation-status");
+  if (!status) {
+    showToast(message);
+    return;
+  }
+  status.textContent = message;
+  status.classList.remove("hidden");
+}
+
+function hideKnowledgeBaseStatus() {
+  window.setTimeout(() => $("kb-operation-status")?.classList.add("hidden"), 1800);
 }
 
 function setLoading(isLoading) {
@@ -44,7 +71,10 @@ function setLoading(isLoading) {
     "rename-kb",
     "delete-kb",
   ].forEach((id) => {
-    $(id).disabled = isLoading;
+    const element = $(id);
+    if (element) {
+      element.disabled = isLoading;
+    }
   });
 }
 
@@ -69,12 +99,24 @@ function hideOperationStatus(kind) {
 }
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(path, options);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${response.status} ${response.statusText}: ${text}`);
+  const timeoutMs = options.timeoutMs ?? 180000;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(path, { ...options, signal: controller.signal });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`${response.status} ${response.statusText}: ${text}`);
+    }
+    return response.json();
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out. Check backend logs or use offline hash embeddings.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  return response.json();
 }
 
 function formatNumber(value, digits = 3) {
@@ -114,6 +156,11 @@ function updateFileList() {
     return;
   }
   list.textContent = state.files.map((file) => file.name).join(" | ");
+}
+
+function syncIndexModeLabel() {
+  const appendMode = $("append-index")?.checked;
+  $("index-docs").textContent = appendMode ? "Add Documents" : "Rebuild Index";
 }
 
 function activeKnowledgeBase() {
@@ -188,23 +235,31 @@ async function createKnowledgeBase() {
   const name = $("new-kb-name").value.trim();
   if (!name) {
     showToast("Enter a knowledge-base name first.");
+    showKnowledgeBaseStatus("Enter a name before creating a new KB.");
     return;
   }
 
   setLoading(true);
+  showKnowledgeBaseStatus(`Creating "${name}"...`);
   try {
     const created = await requestJson(api.knowledgeBases, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
+    await requestJson(`${api.knowledgeBases}/${encodeURIComponent(created.knowledge_base_id)}/select`, {
+      method: "POST",
+    });
     $("new-kb-name").value = "";
     await loadKnowledgeBases();
     state.activeKnowledgeBaseId = created.knowledge_base_id;
     renderKnowledgeBases();
     await refreshStatus();
+    showKnowledgeBaseStatus(`Created and selected "${created.name}".`);
     showToast(`Created and selected ${created.name}.`);
+    hideKnowledgeBaseStatus();
   } catch (error) {
+    showKnowledgeBaseStatus(`Create failed: ${error.message}`);
     showToast(`Knowledge-base creation failed: ${error.message}`);
   } finally {
     setLoading(false);
@@ -215,20 +270,28 @@ async function renameKnowledgeBase() {
   const name = $("new-kb-name").value.trim();
   if (!name) {
     showToast("Enter the new name first.");
+    showKnowledgeBaseStatus("Enter a name before saving.");
     return;
   }
 
   setLoading(true);
+  showKnowledgeBaseStatus(`Saving name "${name}"...`);
   try {
-    await requestJson(`${api.knowledgeBases}/${encodeURIComponent(state.activeKnowledgeBaseId)}`, {
+    const renamed = await requestJson(`${api.knowledgeBases}/${encodeURIComponent(state.activeKnowledgeBaseId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
     $("new-kb-name").value = "";
     await loadKnowledgeBases();
-    showToast("Knowledge base renamed.");
+    state.activeKnowledgeBaseId = renamed.knowledge_base_id;
+    renderKnowledgeBases();
+    await refreshStatus();
+    showKnowledgeBaseStatus(`Saved current KB as "${renamed.name}".`);
+    showToast(`Saved current KB as ${renamed.name}.`);
+    hideKnowledgeBaseStatus();
   } catch (error) {
+    showKnowledgeBaseStatus(`Save failed: ${error.message}`);
     showToast(`Rename failed: ${error.message}`);
   } finally {
     setLoading(false);
@@ -293,13 +356,16 @@ async function indexDocuments() {
   setLoading(true);
   setOperationStatus("index", "Preparing PDF files for upload...", 12);
   try {
+    const shouldReset = !$("append-index")?.checked;
     setOperationStatus("index", "Uploading PDFs to backend...", 36);
-    const result = await requestJson(`${api.index}?reset=true&${knowledgeBaseQuery()}`, {
+    const result = await requestJson(`${api.index}?reset=${shouldReset}&${knowledgeBaseQuery()}`, {
       method: "POST",
       body: formData,
     });
     setOperationStatus("index", "Building embeddings and FAISS index...", 78);
-    showToast(`Indexed ${result.indexed_chunks} chunks from ${result.indexed_files} file(s).`);
+    showToast(
+      `${shouldReset ? "Rebuilt" : "Added"} ${result.indexed_chunks} chunks from ${result.indexed_files} file(s).`,
+    );
     setOperationStatus("index", "Knowledge base ready.", 100);
     await loadKnowledgeBases();
     await refreshStatus();
@@ -645,27 +711,35 @@ function loadExampleQuestion() {
 }
 
 function boot() {
-  $("pdf-files").addEventListener("change", (event) => {
+  bind("pdf-files", "change", (event) => {
     state.files = Array.from(event.target.files || []);
     updateFileList();
   });
-  $("mode").addEventListener("change", syncModeLabels);
-  $("knowledge-base-select").addEventListener("change", (event) =>
+  bind("mode", "change", syncModeLabels);
+  bind("knowledge-base-select", "change", (event) =>
     selectKnowledgeBase(event.target.value),
   );
-  $("index-docs").addEventListener("click", indexDocuments);
-  $("ask-question").addEventListener("click", askQuestion);
-  $("preview-retrieval").addEventListener("click", previewRetrieval);
-  $("compare-question").addEventListener("click", comparePipelines);
-  $("reset-index").addEventListener("click", resetIndex);
-  $("refresh-status").addEventListener("click", refreshStatus);
-  $("refresh-kbs").addEventListener("click", loadKnowledgeBases);
-  $("create-kb").addEventListener("click", createKnowledgeBase);
-  $("rename-kb").addEventListener("click", renameKnowledgeBase);
-  $("delete-kb").addEventListener("click", deleteKnowledgeBase);
-  $("load-examples").addEventListener("click", loadExampleQuestion);
-  $("load-evaluation").addEventListener("click", loadEvaluation);
+  bind("index-docs", "click", indexDocuments);
+  bind("ask-question", "click", askQuestion);
+  bind("preview-retrieval", "click", previewRetrieval);
+  bind("compare-question", "click", comparePipelines);
+  bind("reset-index", "click", resetIndex);
+  bind("append-index", "change", syncIndexModeLabel);
+  bind("refresh-status", "click", refreshStatus);
+  bind("refresh-kbs", "click", loadKnowledgeBases);
+  bind("create-kb", "click", createKnowledgeBase);
+  bind("rename-kb", "click", renameKnowledgeBase);
+  bind("delete-kb", "click", deleteKnowledgeBase);
+  bind("new-kb-name", "keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renameKnowledgeBase();
+    }
+  });
+  bind("load-examples", "click", loadExampleQuestion);
+  bind("load-evaluation", "click", loadEvaluation);
   updateFileList();
+  syncIndexModeLabel();
   syncModeLabels();
   renderAnswer(null);
   renderContexts([]);
@@ -675,4 +749,9 @@ function boot() {
   loadKnowledgeBases().then(refreshStatus);
 }
 
-boot();
+try {
+  boot();
+} catch (error) {
+  console.error("UI initialization failed", error);
+  showKnowledgeBaseStatus(`UI initialization failed: ${error.message}`);
+}

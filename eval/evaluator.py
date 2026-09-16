@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 import csv
 import json
+import re
 import statistics
 import time
 
@@ -214,6 +215,11 @@ class MultiDocumentEvaluationRunner:
             question.expected_answer_keywords,
             response.semantic_similarity,
         )
+        evidence_coverage = self.evidence_coverage_score(
+            question.question,
+            question.expected_answer_keywords,
+            [chunk.text for chunk in response.contexts],
+        )
         unsupported_count = len(response.unsupported_claims)
         timings = response.timings
         return EvaluationRecord(
@@ -232,7 +238,7 @@ class MultiDocumentEvaluationRunner:
             average_similarity_score=round(avg_score, 4),
             max_similarity_score=round(max_score, 4),
             min_similarity_score=round(min_score, 4),
-            evidence_coverage_score=round(response.evidence_coverage_score, 4),
+            evidence_coverage_score=evidence_coverage,
             reranking_gain=round(response.reranking_gain, 4),
             duplicate_or_redundant_chunks_removed=response.removed_redundant_chunks,
             answer_length=len(response.answer),
@@ -286,6 +292,52 @@ class MultiDocumentEvaluationRunner:
             hits = sum(1 for keyword in keywords if keyword in answer_lower)
             overlap = hits / len(keywords)
         return round(min(1.0, max(0.0, 0.6 * overlap + 0.4 * semantic_similarity)), 4)
+
+    @classmethod
+    def evidence_coverage_score(
+        cls, question: str, expected_keywords: list[str], evidence_texts: list[str]
+    ) -> float:
+        evidence_terms = cls._terms(" ".join(evidence_texts))
+        if not evidence_terms:
+            return 0.0
+
+        target_terms = cls._terms(question)
+        for keyword in expected_keywords:
+            target_terms |= cls._terms(keyword)
+        if not target_terms:
+            return 0.0
+
+        return round(len(target_terms & evidence_terms) / len(target_terms), 4)
+
+    @staticmethod
+    def _terms(text: str) -> set[str]:
+        stop_words = {
+            "a",
+            "an",
+            "and",
+            "are",
+            "as",
+            "by",
+            "for",
+            "from",
+            "how",
+            "in",
+            "is",
+            "of",
+            "on",
+            "or",
+            "the",
+            "there",
+            "to",
+            "what",
+            "when",
+            "where",
+            "which",
+            "who",
+            "with",
+        }
+        tokens = re.findall(r"[a-zA-Z0-9%]+", text.lower())
+        return {token for token in tokens if token not in stop_words}
 
     def _compute_summary(self, records: list[EvaluationRecord]) -> list[dict[str, str]]:
         baseline = [r for r in records if r.mode == "baseline"]

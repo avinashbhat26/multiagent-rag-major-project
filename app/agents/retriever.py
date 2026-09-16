@@ -11,6 +11,11 @@ class RetrieverAgent:
         self.store = store
 
     def retrieve(self, query: str, top_k: int) -> list[RetrievedChunk]:
+        if self.embedder.backend == "hash":
+            lexical_results = self.store.lexical_search(query, top_k=top_k)
+            if lexical_results:
+                return lexical_results
+
         query_vector = self.embedder.embed_query(query)
         return self.retrieve_by_embedding(query_vector, top_k=top_k)
 

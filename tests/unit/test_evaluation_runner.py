@@ -113,8 +113,14 @@ def test_metric_calculations() -> None:
     relevance = runner.answer_relevance_score(
         answer="attendance is 75%", keywords=["attendance", "75%"], semantic_similarity=0.8
     )
+    coverage = runner.evidence_coverage_score(
+        question="What is the attendance rule?",
+        expected_keywords=["attendance", "75%"],
+        evidence_texts=["The minimum attendance rule requires 75% attendance."],
+    )
     assert reduction == 40.0
     assert 0.0 <= relevance <= 1.0
+    assert coverage > 0.0
 
 
 def test_evaluation_outputs_are_created(tmp_path: Path) -> None:

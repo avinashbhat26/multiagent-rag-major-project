@@ -237,6 +237,18 @@ h2 {
   line-height: 1.45;
 }
 
+.mini-status {
+  margin-top: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--teal-dark);
+  background: #f1fbf9;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .metric-row {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -361,6 +373,20 @@ button:disabled {
 .file-list {
   margin-top: 12px;
   font-size: 13px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.checkbox-row input {
+  width: auto;
 }
 
 .button-row {

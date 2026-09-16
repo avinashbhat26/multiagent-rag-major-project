@@ -228,9 +228,8 @@ class MultiAgentRAGService:
                 contexts=[],
             )
 
-        query_vector = self.embedder.embed_query(analysis.normalized_question)
         self.retriever.store = kb.store
-        candidates = self.retriever.retrieve_by_embedding(query_vector, top_k=retrieval_k)
+        candidates = self.retriever.retrieve(analysis.normalized_question, top_k=retrieval_k)
         return RetrieveResponse(
             knowledge_base_id=kb.knowledge_base_id,
             knowledge_base_name=kb.name,
@@ -278,7 +277,9 @@ class MultiAgentRAGService:
             )
 
         top_k_value = top_k or settings.top_k
-        retrieval_candidate_k = self._candidate_k(analysis, top_k_value)
+        retrieval_candidate_k = (
+            top_k_value if mode == "baseline" else self._candidate_k(analysis, top_k_value)
+        )
         if kb.store.total_chunks == 0:
             timings.total_ms = self._elapsed(total_start)
             trace.append(
@@ -296,12 +297,10 @@ class MultiAgentRAGService:
             )
 
         start = perf_counter()
-        query_vector = self.embedder.embed_query(analysis.normalized_question)
-        timings.query_embedding_ms = self._elapsed(start)
-
-        start = perf_counter()
         self.retriever.store = kb.store
-        candidates = self.retriever.retrieve_by_embedding(query_vector, top_k=retrieval_candidate_k)
+        candidates = self.retriever.retrieve(
+            analysis.normalized_question, top_k=retrieval_candidate_k
+        )
         timings.retrieval_ms = self._elapsed(start)
         trace.append(
             AgentTraceStep(
@@ -472,10 +471,9 @@ class MultiAgentRAGService:
             if verification.unsupported_claims
             else analysis.normalized_question
         )
-        query_vector = self.embedder.embed_query(recovery_query)
         self.retriever.store = knowledge_base.store
-        recovery_candidates = self.retriever.retrieve_by_embedding(
-            query_vector, top_k=max(top_k_value + 2, settings.top_k + 2)
+        recovery_candidates = self.retriever.retrieve(
+            recovery_query, top_k=max(top_k_value + 2, settings.top_k + 2)
         )
         rerank = self.reranker.rerank(
             recovery_query, recovery_candidates, top_k=min(top_k_value + 2, settings.top_k + 2)

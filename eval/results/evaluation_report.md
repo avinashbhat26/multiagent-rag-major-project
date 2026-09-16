@@ -4,17 +4,17 @@
 
 | Metric | Baseline | Proposed | Comparison |
 |---|---:|---:|---:|
-| avg_context_reduction_percentage | 72.7787 | 71.8887 | -0.8900 |
-| avg_confidence_score | 0.5773 | 0.5861 | +0.0089 |
-| verification_pass_rate | 0.3000 | 0.2333 | -0.0667 |
-| avg_faithfulness_score | 0.5012 | 0.5044 | +0.0032 |
-| avg_answer_relevance_score | 0.5588 | 0.6001 | +0.0413 |
-| avg_latency_ms | 3.5850 | 12.4183 | +8.8333 |
-| avg_retrieved_chunks | 18.6667 | 18.6667 | +0.0000 |
-| avg_selected_chunks | 5.0000 | 5.1333 | +0.1333 |
-| unsupported_claims_count | 0.7000 | 0.7000 | +0.0000 |
-| avg_evidence_coverage_score | 0.0000 | 0.6332 | +0.6332 |
-| avg_reranking_gain | 0.0000 | 0.1760 | +0.1760 |
-| reranked_query_rate | 0.0000 | 1.0000 | +1.0000 |
-| mean_latency_when_reranking_applied | 0.0000 | 12.3523 | +12.3523 |
-| mean_latency_when_reranking_skipped | 3.5245 | 0.0000 | -3.5245 |
+| avg_context_reduction_percentage | 0.0000 | 77.3333 | +77.3333 |
+| avg_confidence_score | 0.8104 | 0.8290 | +0.0186 |
+| verification_pass_rate | 0.8667 | 0.9667 | +0.1000 |
+| avg_faithfulness_score | 0.8352 | 0.8237 | -0.0115 |
+| avg_answer_relevance_score | 0.7974 | 0.7811 | -0.0163 |
+| avg_latency_ms | 753.4003 | 1452.3313 | +698.9310 |
+| avg_retrieved_chunks | 5.0000 | 18.6667 | +13.6667 |
+| avg_selected_chunks | 5.0000 | 4.1667 | -0.8333 |
+| unsupported_claims_count | 0.1333 | 0.0333 | -0.1000 |
+| avg_evidence_coverage_score | 0.7562 | 0.8156 | +0.0594 |
+| avg_reranking_gain | 0.0000 | 0.0161 | +0.0161 |
+| reranked_query_rate | 0.0000 | 0.7667 | +0.7667 |
+| mean_latency_when_reranking_applied | 0.0000 | 1740.8332 | +1740.8332 |
+| mean_latency_when_reranking_skipped | 753.2775 | 503.8100 | -249.4675 |

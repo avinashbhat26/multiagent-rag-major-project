@@ -1,6 +1,7 @@
 from dataclasses import asdict
 import json
 from pathlib import Path
+import re
 from threading import Lock
 
 import faiss
@@ -21,6 +22,10 @@ class FaissStore:
     @property
     def total_chunks(self) -> int:
         return len(self._chunks)
+
+    @property
+    def chunks(self) -> list[DocumentChunk]:
+        return list(self._chunks)
 
     def reset(self) -> None:
         with self._lock:
@@ -78,6 +83,36 @@ class FaissStore:
             )
         return results
 
+    def lexical_search(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
+        """Search chunks with keyword coverage for offline/hash embedding mode."""
+        query_terms = self._terms(query)
+        if not query_terms or not self._chunks:
+            return []
+
+        scored: list[RetrievedChunk] = []
+        for chunk in self._chunks:
+            chunk_terms = self._terms(chunk.text)
+            if not chunk_terms:
+                continue
+            overlap = query_terms & chunk_terms
+            if not overlap:
+                continue
+            coverage = len(overlap) / len(query_terms)
+            density = len(overlap) / max(1, len(chunk_terms))
+            score = (0.85 * coverage) + (0.15 * density)
+            scored.append(
+                RetrievedChunk(
+                    chunk_id=chunk.chunk_id,
+                    text=chunk.text,
+                    source=chunk.source,
+                    page=chunk.page,
+                    metadata=chunk.metadata,
+                    score=round(score, 4),
+                )
+            )
+
+        return sorted(scored, key=lambda item: item.score, reverse=True)[:top_k]
+
     def save(self, index_path: Path, chunks_path: Path) -> None:
         """Persist FAISS index and chunk metadata to disk."""
         with self._lock:
@@ -109,3 +144,33 @@ class FaissStore:
             else:
                 self._index = None
                 self._dimension = None
+
+    @staticmethod
+    def _terms(text: str) -> set[str]:
+        stop_words = {
+            "a",
+            "an",
+            "and",
+            "are",
+            "as",
+            "by",
+            "for",
+            "from",
+            "how",
+            "in",
+            "is",
+            "of",
+            "on",
+            "or",
+            "the",
+            "there",
+            "to",
+            "what",
+            "when",
+            "where",
+            "which",
+            "who",
+            "with",
+        }
+        tokens = re.findall(r"[a-zA-Z0-9%]+", text.lower())
+        return {token for token in tokens if token not in stop_words}

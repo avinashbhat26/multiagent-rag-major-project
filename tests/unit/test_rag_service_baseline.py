@@ -23,3 +23,28 @@ def test_index_and_ask_baseline_flow() -> None:
     assert ask_response.retrieved_context_count >= 1
     assert ask_response.selected_context_count >= 1
     assert retrieve_response.retrieved_context_count >= 1
+
+
+def test_hash_backend_uses_lexical_retrieval() -> None:
+    service = MultiAgentRAGService()
+    service.embedder.backend = "hash"
+
+    fake_pdf = UploadFile(filename="rules.pdf", file=BytesIO(b"%PDF-1.4 fake"))
+    service.parser.extract_pages = lambda _bytes: [  # type: ignore[method-assign]
+        (
+            1,
+            "alpha beta gamma " * 30
+            + "Attendance below the required minimum leads to W grade. "
+            + "patent copyright revenue sharing " * 30,
+        )
+    ]
+
+    service.index_documents([fake_pdf], reset=True)
+    response = service.ask(
+        "What grade is assigned when attendance is below required minimum?",
+        mode="multi_agent",
+        top_k=3,
+    )
+
+    assert "attendance" in response.contexts[0].text.lower()
+    assert response.retrieved_context_count >= response.selected_context_count
