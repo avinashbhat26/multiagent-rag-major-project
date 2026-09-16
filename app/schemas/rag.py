@@ -46,9 +46,12 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1)
     mode: Literal["baseline", "multi_agent"] = "baseline"
     top_k: int | None = Field(default=None, ge=1, le=20)
+    knowledge_base_id: str | None = None
 
 
 class AskResponse(BaseModel):
+    knowledge_base_id: str = "default"
+    knowledge_base_name: str = "Default Knowledge Base"
     question: str
     mode: Literal["baseline", "multi_agent"]
     answer: str
@@ -84,6 +87,8 @@ class AskResponse(BaseModel):
 
 
 class IndexResponse(BaseModel):
+    knowledge_base_id: str = "default"
+    knowledge_base_name: str = "Default Knowledge Base"
     indexed_files: int
     indexed_chunks: int
     total_chunks: int
@@ -97,9 +102,34 @@ class IndexedDocument(BaseModel):
     indexed_at: str
 
 
+class KnowledgeBaseSummary(BaseModel):
+    knowledge_base_id: str
+    name: str
+    total_chunks: int
+    document_count: int
+    created_at: str
+    updated_at: str
+
+
+class KnowledgeBaseListResponse(BaseModel):
+    active_knowledge_base_id: str
+    knowledge_bases: list[KnowledgeBaseSummary] = Field(default_factory=list)
+
+
+class CreateKnowledgeBaseRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+
+
+class RenameKnowledgeBaseRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+
+
 class RagStatusResponse(BaseModel):
+    active_knowledge_base_id: str = "default"
+    active_knowledge_base_name: str = "Default Knowledge Base"
     total_chunks: int
     indexed_documents: list[IndexedDocument] = Field(default_factory=list)
+    knowledge_bases: list[KnowledgeBaseSummary] = Field(default_factory=list)
     llm_provider: str
     embedding_backend: str
     reranking_enabled: bool
@@ -108,9 +138,12 @@ class RagStatusResponse(BaseModel):
 class RetrieveRequest(BaseModel):
     question: str = Field(..., min_length=1)
     top_k: int | None = Field(default=None, ge=1, le=20)
+    knowledge_base_id: str | None = None
 
 
 class RetrieveResponse(BaseModel):
+    knowledge_base_id: str = "default"
+    knowledge_base_name: str = "Default Knowledge Base"
     question: str
     retrieved_context_count: int
     contexts: list[ContextChunk] = Field(default_factory=list)

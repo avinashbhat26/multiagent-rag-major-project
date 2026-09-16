@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 import re
 
 from app.models.document import RetrievedChunk
@@ -18,7 +19,7 @@ class ContextSelectionResult:
 class AdaptiveContextSelectionAgent:
     """Selects useful retrieved chunks using dynamic thresholding and redundancy control."""
 
-    def __init__(self, min_top_k: int = 2, max_top_k: int = 6) -> None:
+    def __init__(self, min_top_k: int = 3, max_top_k: int = 5) -> None:
         self.min_top_k = min_top_k
         self.max_top_k = max_top_k
 
@@ -38,30 +39,41 @@ class AdaptiveContextSelectionAgent:
 
         sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
         top_score = max(sorted_chunks[0].score, 1e-6)
-        score_threshold = top_score * 0.72
+        score_threshold = top_score * 0.60
 
         selected: list[RetrievedChunk] = []
         removed_as_redundant = 0
-        dynamic_top_k = min(self.max_top_k, max(self.min_top_k, len(sorted_chunks) // 2))
+        dynamic_top_k = min(
+            self.max_top_k,
+            max(self.min_top_k, math.ceil(len(sorted_chunks) / 3)),
+        )
         covered_terms: set[str] = set()
         target_terms = {term.lower() for term in query_terms or []}
         stop_reason = "max_context_reached"
 
         for chunk in sorted_chunks:
-            if chunk.score < score_threshold and len(selected) >= self.min_top_k:
+            chunk_terms = self._token_set(chunk.text)
+            adds_new_query_evidence = bool(
+                target_terms and (chunk_terms & target_terms - covered_terms)
+            )
+            if (
+                chunk.score < score_threshold
+                and len(selected) >= self.min_top_k
+                and not adds_new_query_evidence
+            ):
                 stop_reason = "remaining_candidates_below_threshold"
                 continue
-            if self._is_redundant(chunk, selected):
+            if self._is_redundant(chunk, selected) and not adds_new_query_evidence:
                 removed_as_redundant += 1
                 continue
             selected.append(chunk)
-            covered_terms |= self._token_set(chunk.text)
+            covered_terms |= chunk_terms
             if (
                 target_terms
-                and target_terms.issubset(covered_terms)
+                and self._coverage(target_terms, covered_terms) >= 0.85
                 and len(selected) >= self.min_top_k
             ):
-                stop_reason = "evidence_sufficient"
+                stop_reason = "coverage_sufficient"
                 break
             if len(selected) >= dynamic_top_k:
                 stop_reason = "max_context_reached"
@@ -104,7 +116,7 @@ class AdaptiveContextSelectionAgent:
             if not chosen_terms:
                 continue
             overlap = len(candidate_terms & chosen_terms) / len(candidate_terms | chosen_terms)
-            if overlap >= 0.82:
+            if overlap >= 0.90:
                 return True
         return False
 
@@ -120,4 +132,10 @@ class AdaptiveContextSelectionAgent:
         evidence_terms: set[str] = set()
         for chunk in selected:
             evidence_terms |= self._token_set(chunk.text)
-        return round(len(target_terms & evidence_terms) / len(target_terms), 4)
+        return round(self._coverage(target_terms, evidence_terms), 4)
+
+    @staticmethod
+    def _coverage(target_terms: set[str], evidence_terms: set[str]) -> float:
+        if not target_terms:
+            return 0.0
+        return len(target_terms & evidence_terms) / len(target_terms)

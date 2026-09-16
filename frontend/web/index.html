@@ -3,26 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multi-Agent RAG Demo</title>
+    <title>Multi-Agent RAG Research Console</title>
     <link rel="stylesheet" href="/ui/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand-block">
-          <p class="eyebrow">Research Prototype</p>
+          <p class="eyebrow">Research Console</p>
           <h1>Multi-Agent RAG</h1>
-          <p class="subtitle">Reliable QA with adaptive evidence selection and verification.</p>
+          <p class="subtitle">
+            Evidence-grounded question answering with adaptive context selection and verification.
+          </p>
         </div>
 
-        <section class="panel">
+        <section class="panel status-panel">
           <div class="panel-heading">
-            <span>Status</span>
-            <button class="ghost-button" id="refresh-status" type="button">Refresh</button>
+            <span>System Status</span>
+            <button class="icon-button" id="refresh-status" type="button" title="Refresh status">
+              Refresh
+            </button>
           </div>
           <div class="status-grid">
             <div>
-              <span class="metric-label">Chunks</span>
+              <span class="metric-label">Indexed Chunks</span>
               <strong id="status-chunks">0</strong>
             </div>
             <div>
@@ -40,14 +44,44 @@
           </div>
         </section>
 
+        <section class="panel knowledge-panel">
+          <div class="panel-heading">
+            <span>Knowledge Bases</span>
+            <button class="icon-button" id="refresh-kbs" type="button" title="Refresh knowledge bases">
+              Refresh
+            </button>
+          </div>
+
+          <label class="field-label" for="knowledge-base-select">Active Knowledge Base</label>
+          <select id="knowledge-base-select">
+            <option value="default">Default Knowledge Base</option>
+          </select>
+
+          <div class="kb-summary">
+            <span id="kb-documents">0 documents</span>
+            <span id="kb-chunks">0 chunks</span>
+          </div>
+
+          <label class="field-label" for="new-kb-name">Create / Rename</label>
+          <input id="new-kb-name" type="text" placeholder="Example: History textbook" />
+          <div class="button-row compact-buttons">
+            <button class="primary-button slim" id="create-kb" type="button">Create</button>
+            <button class="secondary-button slim" id="rename-kb" type="button">Rename</button>
+            <button class="danger-button slim inline-danger" id="delete-kb" type="button">Delete</button>
+          </div>
+          <p class="helper-text">
+            Uploads, reset, retrieval, and answers use the selected knowledge base.
+          </p>
+        </section>
+
         <section class="panel">
-          <label class="field-label" for="mode">Mode</label>
+          <label class="field-label" for="mode">Pipeline Mode</label>
           <select id="mode">
-            <option value="multi_agent" selected>Proposed Multi-Agent</option>
+            <option value="multi_agent" selected>Proposed Multi-Agent RAG</option>
             <option value="baseline">Baseline RAG</option>
           </select>
 
-          <label class="field-label" for="top-k">Top-K</label>
+          <label class="field-label" for="top-k">Top-K Retrieval</label>
           <input id="top-k" type="number" min="1" max="20" value="5" />
 
           <button class="danger-button" id="reset-index" type="button">Reset Knowledge Base</button>
@@ -57,52 +91,104 @@
       <main class="workspace">
         <section class="hero-band">
           <div>
-            <p class="eyebrow">Document-grounded QA</p>
-            <h2>Ask questions against uploaded PDFs and inspect the evidence trail.</h2>
+            <p class="eyebrow">Reliable document question answering</p>
+            <h2>Research-grade RAG evaluation console.</h2>
+            <p>Compare baseline retrieval against the proposed multi-agent pipeline.</p>
           </div>
-        </section>
-
-        <section class="upload-band">
-          <div class="upload-box" id="drop-zone">
-            <input id="pdf-files" type="file" accept="application/pdf" multiple />
+          <div class="hero-scoreboard">
             <div>
-              <strong>Upload PDF documents</strong>
-              <p>Drop files here or choose PDFs from your machine.</p>
+              <span class="metric-label">Pipeline</span>
+              <strong id="hero-mode">Proposed</strong>
             </div>
-          </div>
-          <button class="primary-button" id="index-docs" type="button">Build Knowledge Base</button>
-          <div id="file-list" class="file-list"></div>
-          <div id="index-status" class="operation-status hidden" aria-live="polite">
-            <div class="operation-status-row">
-              <span id="index-status-text">Preparing document indexing...</span>
-              <span id="index-status-percent">0%</span>
-            </div>
-            <div class="progress-track">
-              <div id="index-progress" class="progress-fill"></div>
+            <div>
+              <span class="metric-label">Last Confidence</span>
+              <strong id="hero-confidence">0.000</strong>
             </div>
           </div>
         </section>
 
-        <section class="question-band">
-          <label class="field-label" for="question">Question</label>
-          <textarea id="question" rows="4">word history is derived from which word?</textarea>
-          <div class="question-actions">
-            <button class="primary-button" id="ask-question" type="button">Generate Answer</button>
-            <button class="secondary-button" id="preview-retrieval" type="button">Preview Retrieval</button>
+        <section class="insight-strip">
+          <div>
+            <span class="metric-label">Evidence Coverage</span>
+            <strong id="strip-coverage">0.000</strong>
           </div>
-          <div id="answer-status" class="operation-status hidden" aria-live="polite">
-            <div class="operation-status-row">
-              <span id="answer-status-text">Preparing query...</span>
-              <span id="answer-status-percent">0%</span>
-            </div>
-            <div class="progress-track">
-              <div id="answer-progress" class="progress-fill"></div>
-            </div>
+          <div>
+            <span class="metric-label">Context Reduction</span>
+            <strong id="strip-reduction">0.0%</strong>
+          </div>
+          <div>
+            <span class="metric-label">Reranking Gain</span>
+            <strong id="strip-rerank">0.000</strong>
+          </div>
+          <div>
+            <span class="metric-label">Verification</span>
+            <strong id="strip-verified">Waiting</strong>
           </div>
         </section>
 
-        <section class="results-grid">
-          <article class="result-panel answer-panel">
+        <section class="grid-two">
+          <article class="surface">
+            <div class="panel-heading">
+              <span>Document Workspace</span>
+              <span class="badge" id="file-count">0 files</span>
+            </div>
+            <label class="upload-box" id="drop-zone" for="pdf-files">
+              <input id="pdf-files" type="file" accept="application/pdf" multiple />
+              <strong>Choose PDF documents</strong>
+              <span>Index academic rulebooks, policy documents, or project reports.</span>
+            </label>
+            <div id="file-list" class="file-list">No files selected.</div>
+            <div class="button-row">
+              <button class="primary-button" id="index-docs" type="button">Build Index</button>
+              <button class="secondary-button" id="load-examples" type="button">Use Demo Questions</button>
+            </div>
+            <div id="index-status" class="operation-status hidden" aria-live="polite">
+              <div class="operation-status-row">
+                <span id="index-status-text">Preparing document indexing...</span>
+                <span id="index-status-percent">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="index-progress" class="progress-fill"></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="surface">
+            <div class="panel-heading">
+              <span>Question Console</span>
+              <span class="badge" id="active-mode">multi_agent</span>
+            </div>
+            <label class="field-label" for="question">Question</label>
+            <textarea id="question" rows="6">What is the minimum attendance requirement in a course?</textarea>
+            <div class="button-row">
+              <button class="primary-button" id="ask-question" type="button">Generate Answer</button>
+              <button class="secondary-button" id="preview-retrieval" type="button">Preview Retrieval</button>
+              <button class="secondary-button" id="compare-question" type="button">Compare Pipelines</button>
+            </div>
+            <div id="answer-status" class="operation-status hidden" aria-live="polite">
+              <div class="operation-status-row">
+                <span id="answer-status-text">Preparing query...</span>
+                <span id="answer-status-percent">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="answer-progress" class="progress-fill"></div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="surface full-width">
+          <div class="panel-heading">
+            <span>Baseline vs Proposed Snapshot</span>
+            <span class="badge" id="comparison-status">Not run</span>
+          </div>
+          <div id="comparison-grid" class="comparison-grid">
+            <div class="comparison-empty">Run a comparison to inspect tradeoffs.</div>
+          </div>
+        </section>
+
+        <section class="answer-layout">
+          <article class="surface answer-panel">
             <div class="panel-heading">
               <span>Generated Answer</span>
               <span class="badge" id="answer-provider">-</span>
@@ -110,60 +196,95 @@
             <p id="answer-text" class="answer-text">No answer generated yet.</p>
           </article>
 
-          <article class="result-panel">
+          <article class="surface">
             <div class="panel-heading">
               <span>Verification</span>
               <span class="badge" id="verified-badge">Waiting</span>
             </div>
             <div class="metric-row">
               <div>
-                <span class="metric-label">Confidence</span>
+                <span class="metric-label" title="Overall verification confidence from evidence matching.">Confidence</span>
                 <strong id="confidence">0.000</strong>
               </div>
               <div>
-                <span class="metric-label">Faithfulness</span>
+                <span class="metric-label" title="Semantic support between generated answer and selected evidence.">Faithfulness</span>
                 <strong id="faithfulness">0.000</strong>
               </div>
               <div>
-                <span class="metric-label">Coverage</span>
+                <span class="metric-label" title="How much of the query intent is covered by selected evidence.">Coverage</span>
                 <strong id="coverage">0.000</strong>
+              </div>
+              <div>
+                <span class="metric-label" title="Change in ranking quality after reranking.">Rerank Gain</span>
+                <strong id="rerank-gain">0.000</strong>
+              </div>
+              <div>
+                <span class="metric-label" title="Whether a second generation pass was triggered after verification.">Regenerated</span>
+                <strong id="regenerated">No</strong>
               </div>
             </div>
           </article>
         </section>
 
-        <section class="results-grid">
-          <article class="result-panel">
+        <section class="grid-two">
+          <article class="surface">
             <div class="panel-heading">
               <span>Pipeline Metrics</span>
               <span class="badge" id="query-complexity">-</span>
             </div>
             <div class="metric-row">
               <div>
-                <span class="metric-label">Retrieved</span>
+                <span class="metric-label" title="Candidate chunks retrieved from vector search.">Retrieved</span>
                 <strong id="retrieved-count">0</strong>
               </div>
               <div>
-                <span class="metric-label">Selected</span>
+                <span class="metric-label" title="Final evidence chunks passed to the generator.">Selected</span>
                 <strong id="selected-count">0</strong>
               </div>
               <div>
-                <span class="metric-label">Rerank Gain</span>
-                <strong id="rerank-gain">0.000</strong>
+                <span class="metric-label" title="Near-duplicate chunks removed by adaptive selection.">Redundant Removed</span>
+                <strong id="redundant-count">0</strong>
+              </div>
+              <div>
+                <span class="metric-label" title="End-to-end latency for the current query.">Total Time</span>
+                <strong id="total-time">0 ms</strong>
+              </div>
+              <div>
+                <span class="metric-label" title="Candidate pool size before cross-encoder or heuristic reranking.">Before Rerank</span>
+                <strong id="before-rerank-count">0</strong>
+              </div>
+              <div>
+                <span class="metric-label" title="Candidate pool size retained after reranking.">After Rerank</span>
+                <strong id="after-rerank-count">0</strong>
               </div>
             </div>
           </article>
 
-          <article class="result-panel">
+          <article class="surface">
             <div class="panel-heading">
-              <span>Timings</span>
-              <span class="badge" id="total-time">0 ms</span>
+              <span>Pipeline Timings</span>
+              <span class="badge">ms</span>
             </div>
             <div id="timings-list" class="compact-list"></div>
           </article>
         </section>
 
-        <section class="result-panel full-width">
+        <section class="surface full-width">
+          <div class="panel-heading">
+            <span>Metric Guide</span>
+            <span class="badge">research fields</span>
+          </div>
+          <div class="metric-guide">
+            <div><strong>Confidence</strong><span>Verifier score that estimates whether the answer is supported by selected evidence.</span></div>
+            <div><strong>Faithfulness</strong><span>Semantic similarity between generated answer claims and the evidence text.</span></div>
+            <div><strong>Evidence Coverage</strong><span>How well selected chunks cover the query terms/subtasks after retrieval and reranking.</span></div>
+            <div><strong>Context Reduction</strong><span>Percentage of retrieved chunks removed before generation.</span></div>
+            <div><strong>Reranking Gain</strong><span>Difference between reranked evidence quality and original retrieval order.</span></div>
+            <div><strong>Selected Chunks</strong><span>Final compact evidence set used for answer generation.</span></div>
+          </div>
+        </section>
+
+        <section class="surface full-width">
           <div class="panel-heading">
             <span>Retrieved Evidence</span>
             <span class="badge" id="context-count">0 chunks</span>
@@ -171,12 +292,37 @@
           <div id="contexts" class="contexts"></div>
         </section>
 
-        <section class="result-panel full-width">
+        <section class="grid-two">
+          <article class="surface">
+            <div class="panel-heading">
+              <span>Supported Claims</span>
+              <span class="badge" id="supported-count">0</span>
+            </div>
+            <div id="supported-claims" class="claim-list"></div>
+          </article>
+          <article class="surface">
+            <div class="panel-heading">
+              <span>Unsupported Claims</span>
+              <span class="badge warning" id="unsupported-count">0</span>
+            </div>
+            <div id="unsupported-claims" class="claim-list"></div>
+          </article>
+        </section>
+
+        <section class="surface full-width">
           <div class="panel-heading">
             <span>Agent Trace</span>
             <span class="badge" id="trace-count">0 steps</span>
           </div>
           <div id="agent-trace" class="trace-list"></div>
+        </section>
+
+        <section class="surface full-width">
+          <div class="panel-heading">
+            <span>Evaluation Snapshot</span>
+            <button class="secondary-button slim" id="load-evaluation" type="button">Load Results</button>
+          </div>
+          <div id="evaluation-table" class="table-wrap"></div>
         </section>
       </main>
     </div>

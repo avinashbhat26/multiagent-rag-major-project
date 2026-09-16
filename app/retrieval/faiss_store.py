@@ -1,3 +1,6 @@
+from dataclasses import asdict
+import json
+from pathlib import Path
 from threading import Lock
 
 import faiss
@@ -74,3 +77,35 @@ class FaissStore:
                 )
             )
         return results
+
+    def save(self, index_path: Path, chunks_path: Path) -> None:
+        """Persist FAISS index and chunk metadata to disk."""
+        with self._lock:
+            index_path.parent.mkdir(parents=True, exist_ok=True)
+            chunks_path.parent.mkdir(parents=True, exist_ok=True)
+            if self._index is not None:
+                faiss.write_index(self._index, str(index_path))
+            elif index_path.exists():
+                index_path.unlink()
+
+            chunks_path.write_text(
+                json.dumps([asdict(chunk) for chunk in self._chunks], indent=2),
+                encoding="utf-8",
+            )
+
+    def load(self, index_path: Path, chunks_path: Path) -> None:
+        """Load FAISS index and chunk metadata from disk if present."""
+        if not chunks_path.exists():
+            return
+
+        chunk_rows = json.loads(chunks_path.read_text(encoding="utf-8"))
+        chunks = [DocumentChunk(**row) for row in chunk_rows]
+
+        with self._lock:
+            self._chunks = chunks
+            if index_path.exists() and chunks:
+                self._index = faiss.read_index(str(index_path))
+                self._dimension = self._index.d
+            else:
+                self._index = None
+                self._dimension = None

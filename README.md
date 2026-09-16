@@ -53,20 +53,15 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-## Streamlit Frontend (Academic Demo UI)
-Run backend and frontend in separate terminals:
+## Web Frontend (Academic Demo UI)
+The demo UI is served by FastAPI at `/ui`.
 
-Terminal 1 (FastAPI backend):
+Run the backend:
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Terminal 2 (Streamlit frontend):
-```bash
-streamlit run frontend/streamlit_app.py
-```
-
-Then open `http://localhost:8501` and:
+Then open `http://127.0.0.1:8000/ui` and:
 - Upload one or more PDF files
 - Click **Build / Update Knowledge Base**
 - Ask questions and inspect:
@@ -74,9 +69,10 @@ Then open `http://localhost:8501` and:
   - verification status
   - confidence score
   - retrieved chunks (source, page, score, text)
+  - reranking, evidence coverage, timings, and agent trace
 
 ## Browser Frontend (No Paid Hosting Required)
-The project also includes a static browser UI served directly by FastAPI.
+The project includes a static browser UI served directly by FastAPI.
 
 Run:
 ```bash

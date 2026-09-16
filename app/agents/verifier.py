@@ -73,6 +73,7 @@ class VerificationAgent:
         total_claims = max(1, len(supported) + len(weakly_supported) + len(unsupported))
         support_ratio = len(supported) / total_claims
         weak_support_ratio = len(weakly_supported) / total_claims
+        effective_support_ratio = support_ratio + (0.65 * weak_support_ratio)
         semantic_similarity = self._semantic_similarity(
             answer=answer,
             context_text=" ".join(chunk.text for chunk in context),
@@ -87,10 +88,10 @@ class VerificationAgent:
             1.0,
             max(
                 0.0,
-                (0.45 * support_ratio)
-                + (0.15 * weak_support_ratio)
+                (0.50 * effective_support_ratio)
                 + (0.25 * avg_claim_support)
                 + (0.15 * semantic_similarity)
+                + (0.10 * min(1.0, len(context) / 3))
                 - unsupported_penalty,
             ),
         )

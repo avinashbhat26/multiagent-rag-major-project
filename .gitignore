@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.rag_data/
 .env
 *.pyc
 *.pyo

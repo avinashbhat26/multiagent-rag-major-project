@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     rerank_score_gap_threshold: float = 0.08
     embedding_cache_enabled: bool = True
     embedding_cache_size: int = 128
+    knowledge_base_storage_dir: str = ".rag_data/knowledge_bases"
     claim_support_threshold: float = 0.62
     claim_weak_support_threshold: float = 0.42
     cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

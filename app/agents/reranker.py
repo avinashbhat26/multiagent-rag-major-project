@@ -41,7 +41,7 @@ class RerankerAgent:
         if not should_apply:
             top = chunks[:top_k]
             return RerankResult(
-                reranked_chunks=top,
+                reranked_chunks=chunks,
                 evidence_coverage_score=self._coverage_score(query, top),
                 reranking_gain=0.0,
                 used_cross_encoder=False,
@@ -49,7 +49,7 @@ class RerankerAgent:
                 reranking_reason=reason,
             )
 
-        original_scores = [chunk.score for chunk in chunks[:top_k]]
+        original_quality = self._ranking_quality(query, chunks[:top_k])
         used_cross_encoder = False
         reranked = chunks
 
@@ -82,12 +82,12 @@ class RerankerAgent:
             reranked = self._fallback_rerank(query, chunks)
 
         top = reranked[:top_k]
-        new_scores = [chunk.score for chunk in top]
-        gain = (sum(new_scores) - sum(original_scores)) / max(1, len(original_scores))
+        new_quality = self._ranking_quality(query, top)
+        gain = new_quality - original_quality
         coverage = self._coverage_score(query, top)
 
         return RerankResult(
-            reranked_chunks=top,
+            reranked_chunks=reranked,
             evidence_coverage_score=coverage,
             reranking_gain=round(gain, 4),
             used_cross_encoder=used_cross_encoder,
@@ -147,6 +147,19 @@ class RerankerAgent:
             evidence_terms |= self._terms(chunk.text)
         covered = len(query_terms & evidence_terms) / len(query_terms)
         return round(min(1.0, max(0.0, covered)), 4)
+
+    def _ranking_quality(self, query: str, chunks: list[RetrievedChunk]) -> float:
+        if not chunks:
+            return 0.0
+        query_terms = self._terms(query)
+        overlap_scores = []
+        for chunk in chunks:
+            chunk_terms = self._terms(chunk.text)
+            overlap = len(query_terms & chunk_terms) / max(1, len(query_terms))
+            overlap_scores.append(overlap)
+        coverage = self._coverage_score(query, chunks)
+        average_overlap = sum(overlap_scores) / len(overlap_scores)
+        return round((0.65 * coverage) + (0.35 * average_overlap), 4)
 
     @staticmethod
     def _terms(text: str) -> set[str]:
