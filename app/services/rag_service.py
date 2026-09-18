@@ -56,11 +56,11 @@ class KnowledgeBaseState:
 
 
 class MultiAgentRAGService:
-    def __init__(self) -> None:
+    def __init__(self, storage_dir: str | Path | None = None) -> None:
         self.query_analyzer = QueryAnalyzerAgent()
         self.planner = PlannerAgent()
         self.embedder = EmbeddingService()
-        self._storage_dir = Path(settings.knowledge_base_storage_dir)
+        self._storage_dir = Path(storage_dir or settings.knowledge_base_storage_dir)
         self._knowledge_bases: dict[str, KnowledgeBaseState] = {
             DEFAULT_KNOWLEDGE_BASE_ID: KnowledgeBaseState(
                 knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,

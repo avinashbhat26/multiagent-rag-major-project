@@ -1,12 +1,13 @@
 from io import BytesIO
+from pathlib import Path
 
 from fastapi import UploadFile
 
 from app.services.rag_service import MultiAgentRAGService
 
 
-def test_index_and_ask_baseline_flow() -> None:
-    service = MultiAgentRAGService()
+def test_index_and_ask_baseline_flow(tmp_path: Path) -> None:
+    service = MultiAgentRAGService(storage_dir=tmp_path / "kb")
     service.embedder.backend = "hash"
 
     fake_pdf = UploadFile(filename="demo.pdf", file=BytesIO(b"%PDF-1.4 fake"))
@@ -25,8 +26,8 @@ def test_index_and_ask_baseline_flow() -> None:
     assert retrieve_response.retrieved_context_count >= 1
 
 
-def test_hash_backend_uses_lexical_retrieval() -> None:
-    service = MultiAgentRAGService()
+def test_hash_backend_uses_lexical_retrieval(tmp_path: Path) -> None:
+    service = MultiAgentRAGService(storage_dir=tmp_path / "kb")
     service.embedder.backend = "hash"
 
     fake_pdf = UploadFile(filename="rules.pdf", file=BytesIO(b"%PDF-1.4 fake"))

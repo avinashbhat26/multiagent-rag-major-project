@@ -36,14 +36,12 @@ class ExtractiveProvider:
 
         best_sentence, source, page = self._best_evidence_sentence(question, context)
         if best_sentence:
-            return (
-                f"Based on retrieved evidence, the answer to '{question}' is: "
-                f"{best_sentence} (Source: {source}, page {page})"
-            )
+            cleaned_sentence = self._clean_text(best_sentence)
+            return f"Answer: {cleaned_sentence}\n\nSource: {source}, page {page}"
 
         top_chunks = context[: min(2, len(context))]
-        evidence = " ".join(chunk.text for chunk in top_chunks)
-        return f"Based on retrieved evidence, the answer to '{question}' is: {evidence[:500]}"
+        evidence = self._clean_text(" ".join(chunk.text for chunk in top_chunks))
+        return f"Answer: {evidence[:500].strip()}\n\nSource: retrieved evidence"
 
     def _best_evidence_sentence(
         self, question: str, context: list[RetrievedChunk]
@@ -74,9 +72,19 @@ class ExtractiveProvider:
 
     @staticmethod
     def _sentences(text: str) -> list[str]:
-        normalized = " ".join(text.split())
+        normalized = ExtractiveProvider._clean_text(text)
         parts = re.split(r"(?<=[.!?])\s+", normalized)
         return [part.strip() for part in parts if part.strip()]
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        cleaned = text.replace("â", "'").replace("â", '"').replace("â", '"')
+        cleaned = cleaned.replace("â", "").replace("•", "")
+        cleaned = re.sub(r"([a-z])([A-Z])", r"\1 \2", cleaned)
+        cleaned = re.sub(r"([a-zA-Z])(\d)", r"\1 \2", cleaned)
+        cleaned = re.sub(r"(\d)([a-zA-Z])", r"\1 \2", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned.strip()
 
     @staticmethod
     def _terms(text: str) -> set[str]:

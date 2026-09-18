@@ -1,14 +1,27 @@
 from io import BytesIO
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from app.api.routes.rag import service
 from app.main import app
+from app.services.rag_service import (
+    DEFAULT_KNOWLEDGE_BASE_ID,
+    DEFAULT_KNOWLEDGE_BASE_NAME,
+    KnowledgeBaseState,
+)
 
 
-def test_index_retrieve_and_ask_endpoints() -> None:
+def test_index_retrieve_and_ask_endpoints(tmp_path: Path) -> None:
     client = TestClient(app)
-    service.store.reset()
+    service._storage_dir = tmp_path / "kb"  # noqa: SLF001
+    service._knowledge_bases = {  # noqa: SLF001
+        DEFAULT_KNOWLEDGE_BASE_ID: KnowledgeBaseState(
+            knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,
+            name=DEFAULT_KNOWLEDGE_BASE_NAME,
+        )
+    }
+    service.active_knowledge_base_id = DEFAULT_KNOWLEDGE_BASE_ID
     service.embedder.backend = "hash"
     service.parser.extract_pages = lambda _bytes: [(1, "alpha beta gamma " * 100)]  # type: ignore[method-assign]
 

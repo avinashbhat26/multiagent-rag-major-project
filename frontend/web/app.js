@@ -3,6 +3,7 @@ const api = {
   knowledgeBases: "/rag/knowledge-bases",
   index: "/rag/index",
   ask: "/rag/ask",
+  documents: "/rag/documents",
   retrieve: "/rag/retrieve",
   reset: "/rag/reset",
   evaluationSummary: "/evaluation/summary",
@@ -133,6 +134,27 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function renderFormattedAnswer(answer) {
+  const text = String(answer || "No answer returned.").trim();
+  const sourceMatch = text.match(/\n\s*Source:\s*/i);
+  if (!sourceMatch) {
+    return `<p>${escapeHtml(text)}</p>`;
+  }
+
+  const answerText = text.slice(0, sourceMatch.index).replace(/^Answer:\s*/i, "").trim();
+  const sourceText = text.slice(sourceMatch.index + sourceMatch[0].length).trim();
+  return `
+    <div class="answer-block">
+      <span class="answer-label">Answer</span>
+      <p>${escapeHtml(answerText || "No answer returned.")}</p>
+    </div>
+    <div class="answer-source">
+      <span class="answer-label">Source</span>
+      <p>${escapeHtml(sourceText || "Retrieved evidence")}</p>
+    </div>
+  `;
+}
+
 function currentPayload() {
   return {
     question: $("question").value.trim(),
@@ -195,6 +217,37 @@ function renderKnowledgeBases() {
   $("new-kb-name").placeholder = active?.name || "Example: History textbook";
 }
 
+async function loadIndexedDocuments() {
+  try {
+    const result = await requestJson(`${api.documents}?${knowledgeBaseQuery()}`);
+    renderIndexedDocuments(result.documents || []);
+  } catch (error) {
+    renderIndexedDocuments([]);
+    showToast(`Could not load indexed documents: ${error.message}`);
+  }
+}
+
+function renderIndexedDocuments(documents) {
+  const container = $("indexed-documents-list");
+  if (!container) {
+    return;
+  }
+  if (!documents.length) {
+    container.innerHTML = "<span>No documents indexed in this KB.</span>";
+    return;
+  }
+  container.innerHTML = documents
+    .map(
+      (document) => `
+        <div class="indexed-document-row">
+          <span>${escapeHtml(document.source || "unknown")}</span>
+          <strong>${document.chunk_count || 0} chunks</strong>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 async function loadKnowledgeBases() {
   try {
     const result = await requestJson(api.knowledgeBases);
@@ -223,6 +276,7 @@ async function selectKnowledgeBase(knowledgeBaseId) {
     renderTimings({});
     renderClaims([], []);
     await refreshStatus();
+    await loadIndexedDocuments();
     showToast(`Selected ${activeKnowledgeBase()?.name || knowledgeBaseId}.`);
   } catch (error) {
     showToast(`Knowledge-base selection failed: ${error.message}`);
@@ -255,6 +309,7 @@ async function createKnowledgeBase() {
     state.activeKnowledgeBaseId = created.knowledge_base_id;
     renderKnowledgeBases();
     await refreshStatus();
+    await loadIndexedDocuments();
     showKnowledgeBaseStatus(`Created and selected "${created.name}".`);
     showToast(`Created and selected ${created.name}.`);
     hideKnowledgeBaseStatus();
@@ -287,6 +342,7 @@ async function renameKnowledgeBase() {
     state.activeKnowledgeBaseId = renamed.knowledge_base_id;
     renderKnowledgeBases();
     await refreshStatus();
+    await loadIndexedDocuments();
     showKnowledgeBaseStatus(`Saved current KB as "${renamed.name}".`);
     showToast(`Saved current KB as ${renamed.name}.`);
     hideKnowledgeBaseStatus();
@@ -321,6 +377,7 @@ async function deleteKnowledgeBase() {
     renderTimings({});
     renderClaims([], []);
     await refreshStatus();
+    await loadIndexedDocuments();
     showToast("Knowledge base updated.");
   } catch (error) {
     showToast(`Delete failed: ${error.message}`);
@@ -339,6 +396,7 @@ async function refreshStatus() {
     $("status-provider").textContent = status.llm_provider ?? "-";
     $("status-embedding").textContent = status.embedding_backend ?? "-";
     $("status-reranking").textContent = status.reranking_enabled ? "enabled" : "disabled";
+    renderIndexedDocuments(status.indexed_documents || []);
   } catch (error) {
     showToast(`Status check failed: ${error.message}`);
   }
@@ -369,6 +427,7 @@ async function indexDocuments() {
     setOperationStatus("index", "Knowledge base ready.", 100);
     await loadKnowledgeBases();
     await refreshStatus();
+    await loadIndexedDocuments();
     hideOperationStatus("index");
   } catch (error) {
     setOperationStatus("index", "Indexing failed. Check backend logs.", 100);
@@ -390,6 +449,7 @@ async function resetIndex() {
     showToast("Knowledge base reset.");
     await loadKnowledgeBases();
     await refreshStatus();
+    await loadIndexedDocuments();
   } catch (error) {
     showToast(`Reset failed: ${error.message}`);
   } finally {
@@ -494,7 +554,7 @@ async function previewRetrieval() {
         knowledge_base_id: payload.knowledge_base_id,
       }),
     });
-    $("answer-text").textContent = "Retrieval preview generated. Generate an answer to run QA.";
+    $("answer-text").innerHTML = "<p>Retrieval preview generated. Generate an answer to run QA.</p>";
     renderContexts(result.contexts || []);
     $("context-count").textContent = `${result.retrieved_context_count || 0} chunks`;
     setOperationStatus("answer", "Retrieval preview ready.", 100);
@@ -509,7 +569,7 @@ async function previewRetrieval() {
 
 function renderAnswer(result) {
   if (!result) {
-    $("answer-text").textContent = "No answer generated yet.";
+    $("answer-text").innerHTML = "<p>No answer generated yet.</p>";
     $("answer-provider").textContent = "-";
     $("verified-badge").textContent = "Waiting";
     $("verified-badge").className = "badge";
@@ -537,7 +597,7 @@ function renderAnswer(result) {
     result.retrieved_context_count || 0,
     result.selected_context_count || 0,
   );
-  $("answer-text").textContent = result.answer || "No answer returned.";
+  $("answer-text").innerHTML = renderFormattedAnswer(result.answer);
   $("answer-provider").textContent = result.llm_provider || "-";
   $("verified-badge").textContent = result.verified ? "Verified" : "Needs review";
   $("verified-badge").className = result.verified ? "badge success" : "badge warning";
@@ -746,7 +806,9 @@ function boot() {
   renderTrace([]);
   renderTimings({});
   renderClaims([], []);
-  loadKnowledgeBases().then(refreshStatus);
+  loadKnowledgeBases()
+    .then(refreshStatus)
+    .then(loadIndexedDocuments);
 }
 
 try {
